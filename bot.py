@@ -152,3 +152,26 @@ app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_mess
 
 print("Bot is running...")
 app.run_polling()
+import os
+from flask import Flask
+from threading import Thread
+
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Buffalo688 Bot is Alive!"
+
+def run():
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.daemon = True
+    t.start()
+
+# main execution အပိုင်းထဲတွင် keep_alive() ကို ခေါ်ပေးရန်
+if __name__ == '__main__':
+    keep_alive()  # Web server ကို စတင်ပေးသည်
+    # ဒီနေရာမှာ မိမိ bot ရဲ့ main/application.run_polling() code ရှိပါမည်
