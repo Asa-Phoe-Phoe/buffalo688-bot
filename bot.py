@@ -143,35 +143,39 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
 
     elif "ဆက်သွယ်ရန်" in text:
         await update.message.reply_text("👸 **အက်ဒမင်ထံ တိုက်ရိုက် ဆက်သွယ်ရန် လင့်ခ် -**\nhttps://t.me/maylay18181")
-
-app = Application.builder().token(BOT_TOKEN).build()
-
-app.add_handler(CommandHandler("start", start))
-app.add_handler(CallbackQueryHandler(button_click))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
-
-print("Bot is running...")
-app.run_polling()
+# Flask Web Server အပိုင်း (Render Port မိစေရန်)
 import os
 from flask import Flask
 from threading import Thread
 
-app = Flask(__name__)
+web_app = Flask(__name__)
 
-@app.route('/')
+@web_app.route('/')
 def home():
     return "Buffalo688 Bot is Alive!"
 
-def run():
+def run_web():
     port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port)
+    web_app.run(host='0.0.0.0', port=port)
 
 def keep_alive():
-    t = Thread(target=run)
+    t = Thread(target=run_web)
     t.daemon = True
     t.start()
 
-# main execution အပိုင်းထဲတွင် keep_alive() ကို ခေါ်ပေးရန်
+
+# Bot Main Execution အပိုင်း
 if __name__ == '__main__':
-    keep_alive()  # Web server ကို စတင်ပေးသည်
-    # ဒီနေရာမှာ မိမိ bot ရဲ့ main/application.run_polling() code ရှိပါမည်
+    # 1. Flask Web Server ကို နောက်ကွယ်မှ စတင်ပေးမည်
+    keep_alive()
+
+    # 2. Telegram Bot ကို စတင်ပေးမည်
+    print("Bot is running...")
+    bot_app = Application.builder().token(BOT_TOKEN).build()
+
+    bot_app.add_handler(CommandHandler("start", start))
+    bot_app.add_handler(CallbackQueryHandler(button_click))
+    bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
+
+    bot_app.run_polling()
+
