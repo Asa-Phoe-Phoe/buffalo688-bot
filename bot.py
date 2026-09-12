@@ -1,13 +1,25 @@
 import os
+from flask import Flask
+from threading import Thread
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, InputMediaPhoto
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
+# ==========================================
+# CONFIGURATION
+# ==========================================
 BOT_TOKEN = "8727302993:AAFzD62UaT-wAmbcv6rc47P4ewmzUuLn9_8"
+
+# မိမိ၏ Telegram User ID ဂဏန်းအမှန်ကို ဒီနေရာတွင် အစားထိုးပါ
+# (@userinfobot ထံမှ ရရှိလာသော ID နံပါတ်)
+ADMIN_ID = 1580210387 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 IMAGES_DIR = os.path.join(BASE_DIR, "images")
 
-# Image ရှာသည့် Function
+
+# ==========================================
+# HELPER FUNCTIONS
+# ==========================================
 def get_images_by_keyword(keyword):
     found_files = []
     if os.path.exists(IMAGES_DIR):
@@ -18,7 +30,7 @@ def get_images_by_keyword(keyword):
                 found_files.append(full_path)
     return found_files
 
-# ပုံများ ပို့ပေးသည့် Helper Function
+
 async def send_photos(chat_id, context, keyword, caption_text):
     image_paths = get_images_by_keyword(keyword)
     opened_files = []
@@ -44,8 +56,11 @@ async def send_photos(chat_id, context, keyword, caption_text):
         for f in opened_files:
             f.close()
 
+
+# ==========================================
+# TELEGRAM BOT HANDLERS
+# ==========================================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Inline Buttons
     inline_keyboard = [
         [InlineKeyboardButton("🎰 ကျဝှဲဂိမ်း အကောင့်ဖွင့်မယ်", callback_data="register")],
         [InlineKeyboardButton("▶️ ဆော့ဝဲဒေါင်းမယ်", url="https://m.buffalo688.club/auth/register?code=K8PYVL")],
@@ -57,7 +72,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("👸 အက်ဒမင်နဲ့ ဆက်သွယ်ရန်", url="https://t.me/maylay18181")]
     ]
 
-    # Reply Keyboard
     reply_keyboard = [
         ["🐂 အကောင့်ဖွင့်မယ် 🚀"],
         ["▶️ ဆော့ဝဲဒေါင်းမည်", "🌐 တိုက်ရိုက်လင့်"],
@@ -79,7 +93,7 @@ Buffalo688 ကျွဲဂိမ်းတိုက်ရိုက်ဆိုက
     await update.message.reply_text(welcome_text, reply_markup=reply_markup)
     await update.message.reply_text("အောက်ပါ ခလုတ်များကို အသုံးပြုနိုင်ပါသည် -", reply_markup=inline_markup)
 
-# Inline Button နှိပ်သည့်အခါ
+
 async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -91,27 +105,22 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif query.data == "deposit":
         await query.message.reply_text("📱 ဆော့ဝဲထဲကနေ တိုက်ရိုက် ငွေဖြည့်နည်းလေးကို ပုံလေးတွေနဲ့ တဆင့်ချင်းရှင်းပြပေးထားပါတယ်ရှင့် ✨")
-        
-        deposit_caption = """⚠️ အချက်အလက်လေး မှန်ကန်အောင်တင်ပေးပါနော် 💯
-
-⚡️ အချက်အလက်လေးမှန်ကန်ရင် ၁၀ စက္ကန့်အတွင်း ဂိမ်းထဲပိုက်ဆံရောက်လာပါမယ်ရှင့် 📲💸"""
-        
+        deposit_caption = """⚠️ အချက်အလက်လေး မှန်ကန်အောင်တင်ပေးပါနော် 💯\n\n⚡️ အချက်အလက်လေးမှန်ကန်ရင် ၁၀ စက္ကန့်အတွင်း ဂိမ်းထဲပိုက်ဆံရောက်လာပါမယ်ရှင့် 📲💸"""
         await send_photos(query.message.chat_id, context, "deposit", deposit_caption)
 
     elif query.data == "withdraw":
-        # ၁။ ငွေထုတ်နည်း ပထမ စာသား
         await query.message.reply_text("📱 ဆော့ဝဲထဲကနေ တိုက်ရိုက် ငွေထုတ်နည်းလေးကို ပုံလေးတွေနဲ့ တဆင့်ချင်းရှင်းပြပေးထားပါတယ်ရှင့် ✨")
-        
-        # ၂။ ငွေထုတ်နည်း Album ပုံများနှင့် စာသား
         withdraw_caption = """⚡️ အချက်အလက်လေးမှန်ကန်အောင် ထည့်ပြီးရင် 10 စက္ကန့်အတွင်း Kpay, Wave ထဲ ထုတ်ငွေလေးဝင်လာပါမယ်ရှင့် 📲💸"""
-        
         await send_photos(query.message.chat_id, context, "withdraw", withdraw_caption)
 
-# Reply Keyboard နှိပ်သည့်အခါ
+
+# ဖောက်သည်များ စာပို့လာပါက စစ်ဆေးပေးမည့် Function
 async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     chat_id = update.message.chat_id
+    user = update.message.from_user
 
+    # 1. မူလ Bot ရဲ့ ခလုတ်စာသားများကို တုံ့ပြန်ခြင်း
     if "အကောင့်ဖွင့်မယ်" in text:
         await update.message.reply_text("ဟုတ်ကဲ့ပါရှင့် အကောင့်သစ်လေး ဖွင့်ပေးဖို့အတွက် အစ်ကိုရဲ့ ဖုန်းနံပါတ်လေး ပြောပေးပါဦးရှင့် ✨🌸")
         await update.message.reply_text("အကောင့်ဖွင့်ပြီးပါက နေ့စဉ် 5% Cash Back ဘောနပ်စ် ရရှိပါမည်ရှင့် 🎁")
@@ -125,70 +134,51 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
 
     elif "ငွေသွင်းနည်း" in text:
         await update.message.reply_text("📱 ဆော့ဝဲထဲကနေ တိုက်ရိုက် ငွေဖြည့်နည်းလေးကို ပုံလေးတွေနဲ့ တဆင့်ချင်းရှင်းပြပေးထားပါတယ်ရှင့် ✨")
-        
-        deposit_caption = """⚠️ အချက်အလက်လေး မှန်ကန်အောင်တင်ပေးပါနော် 💯
-
-⚡️ အချက်အလက်လေးမှန်ကန်ရင် ၁၀ စက္ကန့်အတွင်း ဂိမ်းထဲပိုက်ဆံရောက်လာပါမယ်ရှင့် 📲💸"""
-        
+        deposit_caption = """⚠️ အချက်အလက်လေး မှန်ကန်အောင်တင်ပေးပါနော် 💯\n\n⚡️ အချက်အလက်လေးမှန်ကန်ရင် ၁၀ စက္ကန့်အတွင်း ဂိမ်းထဲပိုက်ဆံရောက်လာပါမယ်ရှင့် 📲💸"""
         await send_photos(chat_id, context, "deposit", deposit_caption)
 
     elif "ငွေထုတ်နည်း" in text:
-        # ၁။ ငွေထုတ်နည်း ပထမ စာသား
         await update.message.reply_text("📱 ဆော့ဝဲထဲကနေ တိုက်ရိုက် ငွေထုတ်နည်းလေးကို ပုံလေးတွေနဲ့ တဆင့်ချင်းရှင်းပြပေးထားပါတယ်ရှင့် ✨")
-        
-        # ၂။ ငွေထုတ်နည်း Album ပုံများနှင့် စာသား
         withdraw_caption = """⚡️ အချက်အလက်လေးမှန်ကန်အောင် ထည့်ပြီးရင် 10 စက္ကန့်အတွင်း Kpay, Wave ထဲ ထုတ်ငွေလေးဝင်လာပါမယ်ရှင့် 📲💸"""
-        
         await send_photos(chat_id, context, "withdraw", withdraw_caption)
 
     elif "ဆက်သွယ်ရန်" in text:
         await update.message.reply_text("👸 **အက်ဒမင်ထံ တိုက်ရိုက် ဆက်သွယ်ရန် လင့်ခ် -**\nhttps://t.me/maylay18181")
-# Flask Web Server အပိုင်း (Render Port မိစေရန်)
-import os
-from flask import Flask
-from threading import Thread
 
-web_app = Flask(__name__)
-
-@web_app.route('/')
-def home():
-    return "Buffalo688 Bot is Alive!"
-
-def run_web():
-    port = int(os.environ.get("PORT", 8080))
-    web_app.run(host='0.0.0.0', port=port)
-
-def keep_alive():
-    t = Thread(target=run_web)
-    t.daemon = True
-    t.start()
+    # 2. ခလုတ်စာသား မဟုတ်ပါက ဖောက်သည် စာပို့သည်ဟု သတ်မှတ်၍ Admin ထံ Forward လှမ်းပို့ပေးခြင်း
+    else:
+        if user.id != ADMIN_ID:
+            admin_msg = (
+                f"📩 **ဖောက်သည်ထံမှ စာအသစ် ရောက်ရှိပါသည်**\n\n"
+                f"👤 **Name:** {user.full_name}\n"
+                f"🆔 **User ID:** `{user.id}`\n"
+                f"💬 **Message:** {text}"
+            )
+            try:
+                await context.bot.send_message(chat_id=ADMIN_ID, text=admin_msg, parse_mode="Markdown")
+                await update.message.reply_text("လူကြီးမင်း၏ စာကို လက်ခံရရှိပါပြီ။ ခဏအတွင်း တာဝန်ရှိသူမှ ပြန်လည် စာပြန်ပေးပါမည်ခင်ဗျာ။")
+            except Exception as e:
+                print(f"[ERROR Admin Alert] {e}")
 
 
-# Bot Main Execution အပိုင်း
-import os
-from flask import Flask
-from threading import Thread
+# Admin မှ ဖောက်သည်ထံ စာပြန်ရန် Command (/reply UserID စာသား)
+async def reply_to_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.from_user.id != ADMIN_ID:
+        return
 
-web_app = Flask(__name__)
+    try:
+        target_user_id = context.args[0]
+        reply_message = " ".join(context.args[1:])
 
-@web_app.route('/')
-def home():
-    return "Buffalo688 Bot is Alive!"
+        await context.bot.send_message(chat_id=target_user_id, text=f"💬 **Admin မှ ပြန်လည်အကြောင်းပြန်စာ:**\n\n{reply_message}", parse_mode="Markdown")
+        await update.message.reply_text("✅ ဖောက်သည်ထံ စာပြန်ပို့ပြီးပါပြီခင်ဗျာ။")
+    except Exception as e:
+        await update.message.reply_text("❌ စာပြန်ရန် ပုံစံမှားယွင်းနေပါသည်။\nဥပမာ - `/reply 123456789 မင်္ဂလာပါ` ဟု ရိုက်ပို့ပါခင်ဗျာ။")
 
-def run_web():
-    port = int(os.environ.get("PORT", 8080))
-    # Werkzeug server မလိုလားအပ်သော log များကို ပိတ်ထားမည်
-    web_app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
 
-def keep_alive():
-    t = Thread(target=run_web)
-    t.daemon = True
-    t.start()
-
-import os
-from flask import Flask
-from threading import Thread
-
+# ==========================================
+# FLASK WEB SERVER (For Render Port Binding)
+# ==========================================
 web_app = Flask(__name__)
 
 @web_app.route('/')
@@ -199,19 +189,28 @@ def run_web():
     port = int(os.environ.get("PORT", 8080))
     web_app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
 
+
+# ==========================================
+# MAIN EXECUTION
+# ==========================================
 def start_bot():
     print("Bot is starting polling...")
     bot_app = Application.builder().token(BOT_TOKEN).build()
+
+    # Handlers များကို တပ်ဆင်ခြင်း
     bot_app.add_handler(CommandHandler("start", start))
+    bot_app.add_handler(CommandHandler("reply", reply_to_user))
     bot_app.add_handler(CallbackQueryHandler(button_click))
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
+
     bot_app.run_polling(drop_pending_updates=True)
 
+
 if __name__ == '__main__':
-    # ၁။ Telegram Bot ကို Thread သီးသန့်ဖြင့် Run မည်
+    # ၁။ Telegram Bot ကို Background Thread ဖြင့် Run မည်
     bot_thread = Thread(target=start_bot)
     bot_thread.daemon = True
     bot_thread.start()
 
-    # ၂။ Flask Web Server ကို Main Thread တွင် Run ၍ Render Port ကို ထိန်းထားမည်
+    # ၂။ Flask Web Server ကို Main Thread တွင် Run မည်
     run_web()
