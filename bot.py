@@ -9,9 +9,8 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Mess
 # ==========================================
 BOT_TOKEN = "8727302993:AAFzD62UaT-wAmbcv6rc47P4ewmzUuLn9_8"
 
-# မိမိ၏ Telegram User ID ဂဏန်းအမှန်ကို ဒီနေရာတွင် အစားထိုးပါ
-# (@userinfobot ထံမှ ရရှိလာသော ID နံပါတ်)
-ADMIN_ID = 1580210387 
+# မိမိ၏ Telegram User ID ဂဏန်းအမှန်ကို ဒီနေရာတွင် ထည့်ပါ (@userinfobot ထံမှ ရသော ID)
+ADMIN_ID = 123456789 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 IMAGES_DIR = os.path.join(BASE_DIR, "images")
@@ -114,13 +113,13 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_photos(query.message.chat_id, context, "withdraw", withdraw_caption)
 
 
-# ဖောက်သည်များ စာပို့လာပါက စစ်ဆေးပေးမည့် Function
+# စာသားများ ရောက်ရှိလာပါက စစ်ဆေးပေးမည့် Function
 async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     chat_id = update.message.chat_id
     user = update.message.from_user
 
-    # 1. မူလ Bot ရဲ့ ခလုတ်စာသားများကို တုံ့ပြန်ခြင်း
+    # 1. မူလ Bot ခလုတ် စာသားများကို တုံ့ပြန်ခြင်း
     if "အကောင့်ဖွင့်မယ်" in text:
         await update.message.reply_text("ဟုတ်ကဲ့ပါရှင့် အကောင့်သစ်လေး ဖွင့်ပေးဖို့အတွက် အစ်ကိုရဲ့ ဖုန်းနံပါတ်လေး ပြောပေးပါဦးရှင့် ✨🌸")
         await update.message.reply_text("အကောင့်ဖွင့်ပြီးပါက နေ့စဉ် 5% Cash Back ဘောနပ်စ် ရရှိပါမည်ရှင့် 🎁")
@@ -145,7 +144,7 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
     elif "ဆက်သွယ်ရန်" in text:
         await update.message.reply_text("👸 **အက်ဒမင်ထံ တိုက်ရိုက် ဆက်သွယ်ရန် လင့်ခ် -**\nhttps://t.me/maylay18181")
 
-    # 2. ခလုတ်စာသား မဟုတ်ပါက ဖောက်သည် စာပို့သည်ဟု သတ်မှတ်၍ Admin ထံ Forward လှမ်းပို့ပေးခြင်း
+    # 2. ခလုတ်စာသား မဟုတ်ပါက Admin ထံ စာလှမ်းပို့ပေးခြင်း
     else:
         if user.id != ADMIN_ID:
             admin_msg = (
@@ -193,24 +192,19 @@ def run_web():
 # ==========================================
 # MAIN EXECUTION
 # ==========================================
-def start_bot():
+if __name__ == '__main__':
+    # ၁။ Flask Server ကို နောက်ကွယ် Thread တွင် စတင်မည် (Render Port မိစေရန်)
+    web_thread = Thread(target=run_web)
+    web_thread.daemon = True
+    web_thread.start()
+
+    # ၂။ Telegram Bot ကို Main Thread တွင် Run မည် (Async Loop အဆင်ပြေစေရန်)
     print("Bot is starting polling...")
     bot_app = Application.builder().token(BOT_TOKEN).build()
 
-    # Handlers များကို တပ်ဆင်ခြင်း
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(CommandHandler("reply", reply_to_user))
     bot_app.add_handler(CallbackQueryHandler(button_click))
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
 
     bot_app.run_polling(drop_pending_updates=True)
-
-
-if __name__ == '__main__':
-    # ၁။ Telegram Bot ကို Background Thread ဖြင့် Run မည်
-    bot_thread = Thread(target=start_bot)
-    bot_thread.daemon = True
-    bot_thread.start()
-
-    # ၂။ Flask Web Server ကို Main Thread တွင် Run မည်
-    run_web()
