@@ -13,7 +13,7 @@ BOT_TOKEN = "8727302993:AAFzD62UaT-wAmbcv6rc47P4ewmzUuLn9_8"
 ADMIN_ID = 1580210387 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-IMAGES_DIR = os.path.join(BASE_DIR, "images")
+IMAGES_DIR = BASE_DIR
 
 
 # ==========================================
