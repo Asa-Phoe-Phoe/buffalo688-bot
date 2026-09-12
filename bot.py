@@ -165,17 +165,36 @@ def keep_alive():
 
 
 # Bot Main Execution အပိုင်း
+import os
+from flask import Flask
+from threading import Thread
+
+web_app = Flask(__name__)
+
+@web_app.route('/')
+def home():
+    return "Buffalo688 Bot is Alive!"
+
+def run_web():
+    port = int(os.environ.get("PORT", 8080))
+    # Werkzeug server မလိုလားအပ်သော log များကို ပိတ်ထားမည်
+    web_app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
+
+def keep_alive():
+    t = Thread(target=run_web)
+    t.daemon = True
+    t.start()
+
 if __name__ == '__main__':
-    # 1. Flask Web Server ကို နောက်ကွယ်မှ စတင်ပေးမည်
+    # ၁။ Flask Web Server ကို Thread သီးသန့်ဖြင့် စတင်မည်
     keep_alive()
 
-    # 2. Telegram Bot ကို စတင်ပေးမည်
-    print("Bot is running...")
+    # ၂။ Telegram Bot Polling ကို Main Thread တွင် Run မည်
+    print("Bot is starting polling...")
+    
     bot_app = Application.builder().token(BOT_TOKEN).build()
-
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(CallbackQueryHandler(button_click))
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
 
-    bot_app.run_polling()
-
+    bot_app.run_polling(drop_pending_updates=True)
