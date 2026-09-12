@@ -9,7 +9,7 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Mess
 # ==========================================
 BOT_TOKEN = "8727302993:AAFzD62UaT-wAmbcv6rc47P4ewmzUuLn9_8"
 
-# မိမိ၏ Telegram User ID ဂဏန်းအမှန်ကို ဒီနေရာတွင် ထည့်ပါ
+# မိမိ၏ Telegram User ID ဂဏန်းအမှန်ကို ဒီနေရာတွင် ထည့်ပါ (@userinfobot ထံမှ ရသော ID)
 ADMIN_ID = 1580210387 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -144,13 +144,12 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
     elif "ဆက်သွယ်ရန်" in text:
         await update.message.reply_text("👸 **အက်ဒမင်ထံ တိုက်ရိုက် ဆက်သွယ်ရန် လင့်ခ် -**\nhttps://t.me/maylay18181")
 
-    # 2. Admin မှ ဖောက်သည်၏ စာကို Reply နှိပ်၍ စာပြန်ခြင်း စစ်ဆေးရန်
+    # 2. Admin မှ Reply နှိပ်၍ ဖောက်သည်ထံ စာပြန်ခြင်း
     elif user.id == ADMIN_ID:
         if update.message.reply_to_message:
             original_msg = update.message.reply_to_message.text or update.message.reply_to_message.caption
             if original_msg and "🆔 User ID:" in original_msg:
                 try:
-                    # Rerouted User ID ကို ရှာဖွေခြင်း
                     target_user_id = int(original_msg.split("🆔 User ID:")[1].split("\n")[0].replace("`", "").strip())
                     await context.bot.send_message(chat_id=target_user_id, text=text)
                     await update.message.reply_text("✅ စာပြန်ပြီးပါပြီခင်ဗျာ။")
