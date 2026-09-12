@@ -144,35 +144,31 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
     elif "ဆက်သွယ်ရန်" in text:
         await update.message.reply_text("👸 **အက်ဒမင်ထံ တိုက်ရိုက် ဆက်သွယ်ရန် လင့်ခ် -**\nhttps://t.me/maylay18181")
 
-    # 2. ဖောက်သည်မှ စာပို့လာလျှင် Admin ထံ တိုက်ရိုက် လှမ်းပို့မည် (ဖောက်သည်ထံ ဘာမှ ပြန်မပို့တော့ပါ)
+    # 2. Admin မှ ဖောက်သည်၏ စာကို Reply နှိပ်၍ စာပြန်ခြင်း စစ်ဆေးရန်
+    elif user.id == ADMIN_ID:
+        if update.message.reply_to_message:
+            original_msg = update.message.reply_to_message.text or update.message.reply_to_message.caption
+            if original_msg and "🆔 User ID:" in original_msg:
+                try:
+                    # Rerouted User ID ကို ရှာဖွေခြင်း
+                    target_user_id = int(original_msg.split("🆔 User ID:")[1].split("\n")[0].replace("`", "").strip())
+                    await context.bot.send_message(chat_id=target_user_id, text=text)
+                    await update.message.reply_text("✅ စာပြန်ပြီးပါပြီခင်ဗျာ။")
+                except Exception as e:
+                    await update.message.reply_text(f"❌ စာပြန်ရာတွင် အမှားဖြစ်ပေါ်ပါသည်: {e}")
+
+    # 3. ဖောက်သည်မှ စာပို့လာပါက Admin ထံ စာလှမ်းပို့ပေးခြင်း
     else:
-        if user.id != ADMIN_ID:
-            admin_msg = (
-                f"📩 **ဖောက်သည်ထံမှ စာအသစ် ရောက်ရှိပါသည်**\n\n"
-                f"👤 **Name:** {user.full_name}\n"
-                f"🆔 **User ID:** `{user.id}`\n"
-                f"💬 **Message:** {text}"
-            )
-            try:
-                await context.bot.send_message(chat_id=ADMIN_ID, text=admin_msg, parse_mode="Markdown")
-            except Exception as e:
-                print(f"[ERROR Admin Alert] {e}")
-
-
-# Admin မှ ဖောက်သည်ထံ စာပြန်ရန် Command (/reply UserID စာသား)
-async def reply_to_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.from_user.id != ADMIN_ID:
-        return
-
-    try:
-        target_user_id = context.args[0]
-        reply_message = " ".join(context.args[1:])
-
-        # မိမိရိုက်လိုက်သော စာသားကိုသာ ဖောက်သည်ထံ သန့်သန့်ရှင်းရှင်း ပို့ပေးမည်
-        await context.bot.send_message(chat_id=target_user_id, text=reply_message)
-        await update.message.reply_text("✅ စာပြန်ပြီးပါပြီခင်ဗျာ။")
-    except Exception as e:
-        await update.message.reply_text("❌ စာပြန်ရန် ပုံစံမှားယွင်းနေပါသည်။\nဥပမာ - `/reply 123456789 မင်္ဂလာပါ` ဟု ရိုက်ပို့ပါခင်ဗျာ။")
+        admin_msg = (
+            f"📩 **ဖောက်သည်ထံမှ စာအသစ် ရောက်ရှိပါသည်**\n\n"
+            f"👤 **Name:** {user.full_name}\n"
+            f"🆔 User ID: `{user.id}`\n"
+            f"💬 **Message:** {text}"
+        )
+        try:
+            await context.bot.send_message(chat_id=ADMIN_ID, text=admin_msg, parse_mode="Markdown")
+        except Exception as e:
+            print(f"[ERROR Admin Alert] {e}")
 
 
 # ==========================================
@@ -201,7 +197,6 @@ if __name__ == '__main__':
     bot_app = Application.builder().token(BOT_TOKEN).build()
 
     bot_app.add_handler(CommandHandler("start", start))
-    bot_app.add_handler(CommandHandler("reply", reply_to_user))
     bot_app.add_handler(CallbackQueryHandler(button_click))
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
 
