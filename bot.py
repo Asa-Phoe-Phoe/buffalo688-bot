@@ -9,7 +9,7 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Mess
 # ==========================================
 BOT_TOKEN = "8727302993:AAFzD62UaT-wAmbcv6rc47P4ewmzUuLn9_8"
 
-# မိမိ၏ Telegram User ID ဂဏန်းအမှန်ကို ဒီနေရာတွင် ထည့်ပါ (@userinfobot ထံမှ ရသော ID)
+# မိမိ၏ Telegram User ID ဂဏန်းအမှန်ကို ဒီနေရာတွင် ထည့်ပါ
 ADMIN_ID = 1580210387 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -144,7 +144,7 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
     elif "ဆက်သွယ်ရန်" in text:
         await update.message.reply_text("👸 **အက်ဒမင်ထံ တိုက်ရိုက် ဆက်သွယ်ရန် လင့်ခ် -**\nhttps://t.me/maylay18181")
 
-    # 2. ခလုတ်စာသား မဟုတ်ပါက Admin ထံ စာလှမ်းပို့ပေးခြင်း
+    # 2. ဖောက်သည်မှ စာပို့လာလျှင် Admin ထံ တိုက်ရိုက် လှမ်းပို့မည် (ဖောက်သည်ထံ ဘာမှ ပြန်မပို့တော့ပါ)
     else:
         if user.id != ADMIN_ID:
             admin_msg = (
@@ -155,7 +155,6 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
             )
             try:
                 await context.bot.send_message(chat_id=ADMIN_ID, text=admin_msg, parse_mode="Markdown")
-                await update.message.reply_text("လူကြီးမင်း၏ စာကို လက်ခံရရှိပါပြီ။ ခဏအတွင်း တာဝန်ရှိသူမှ ပြန်လည် စာပြန်ပေးပါမည်ခင်ဗျာ။")
             except Exception as e:
                 print(f"[ERROR Admin Alert] {e}")
 
@@ -169,8 +168,9 @@ async def reply_to_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
         target_user_id = context.args[0]
         reply_message = " ".join(context.args[1:])
 
-        await context.bot.send_message(chat_id=target_user_id, text=f"💬 **Admin မှ ပြန်လည်အကြောင်းပြန်စာ:**\n\n{reply_message}", parse_mode="Markdown")
-        await update.message.reply_text("✅ ဖောက်သည်ထံ စာပြန်ပို့ပြီးပါပြီခင်ဗျာ။")
+        # မိမိရိုက်လိုက်သော စာသားကိုသာ ဖောက်သည်ထံ သန့်သန့်ရှင်းရှင်း ပို့ပေးမည်
+        await context.bot.send_message(chat_id=target_user_id, text=reply_message)
+        await update.message.reply_text("✅ စာပြန်ပြီးပါပြီခင်ဗျာ။")
     except Exception as e:
         await update.message.reply_text("❌ စာပြန်ရန် ပုံစံမှားယွင်းနေပါသည်။\nဥပမာ - `/reply 123456789 မင်္ဂလာပါ` ဟု ရိုက်ပို့ပါခင်ဗျာ။")
 
@@ -193,12 +193,10 @@ def run_web():
 # MAIN EXECUTION
 # ==========================================
 if __name__ == '__main__':
-    # ၁။ Flask Server ကို နောက်ကွယ် Thread တွင် စတင်မည် (Render Port မိစေရန်)
     web_thread = Thread(target=run_web)
     web_thread.daemon = True
     web_thread.start()
 
-    # ၂။ Telegram Bot ကို Main Thread တွင် Run မည် (Async Loop အဆင်ပြေစေရန်)
     print("Bot is starting polling...")
     bot_app = Application.builder().token(BOT_TOKEN).build()
 
