@@ -1,4 +1,5 @@
 import os
+import asyncio
 from flask import Flask
 from threading import Thread
 from openai import OpenAI
@@ -9,13 +10,15 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Mess
 # CONFIGURATION
 # ==========================================
 BOT_TOKEN = "8727302993:AAFzD62UaT-wAmbcv6rc47P4ewmzUuLn9_8"
-ADMIN_ID = 1580210387  # မိမိ၏ Telegram User ID ဂဏန်းအမှန် ပြောင်းပါ
 
-# OpenAI Client ချိန်ညှိခြင်း (Environment Variable ထဲမှ Key ကို အလိုအလျောက် ယူပါမည်)
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+# မိမိ၏ Telegram User ID ဂဏန်းအမှန် ထည့်ပါ (@userinfobot ထံမှ ရသော ID)
+ADMIN_ID = 1580210387 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 IMAGES_DIR = BASE_DIR
+
+# OpenAI Client (Render Environment Variable မှ OPENAI_API_KEY ကို ယူသုံးပါမည်)
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 
 # ==========================================
@@ -51,14 +54,13 @@ async def send_photos(chat_id, context, keyword, caption_text):
         else:
             await context.bot.send_message(chat_id=chat_id, text=f"{keyword} စာသားပါသော ပုံများကို ရှာမတွေ့ပါ။")
     except Exception as e:
-        print(f"[ERROR] {e}")
+        print(f"[ERROR Photo] {e}")
         await context.bot.send_message(chat_id=chat_id, text=f"အမှားဖြစ်ပေါ်ပါသည်: {e}")
     finally:
         for f in opened_files:
             f.close()
 
 
-# OpenAI ဖြင့် Auto Reply စာထုတ်ပေးသည့် Function
 def ask_openai(user_message):
     try:
         response = client.chat.completions.create(
@@ -139,13 +141,11 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_photos(query.message.chat_id, context, "withdraw", withdraw_caption)
 
 
-# စာသားများ ရောက်ရှိလာပါက စစ်ဆေးပေးမည့် Function
 async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     chat_id = update.message.chat_id
     user = update.message.from_user
 
-    # 1. မူလ Bot ခလုတ် စာသားများကို တုံ့ပြန်ခြင်း
     if "အကောင့်ဖွင့်မယ်" in text:
         await update.message.reply_text("ဟုတ်ကဲ့ပါရှင့် အကောင့်သစ်လေး ဖွင့်ပေးဖို့အတွက် အစ်ကိုရဲ့ ဖုန်းနံပါတ်လေး ပြောပေးပါဦးရှင့် ✨🌸")
         await update.message.reply_text("အကောင့်ဖွင့်ပြီးပါက နေ့စဉ် 5% Cash Back ဘောနပ်စ် ရရှိပါမည်ရှင့် 🎁")
@@ -170,7 +170,7 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
     elif "ဆက်သွယ်ရန်" in text:
         await update.message.reply_text("👸 **အက်ဒမင်ထံ တိုက်ရိုက် ဆက်သွယ်ရန် လင့်ခ် -**\nhttps://t.me/maylay18181")
 
-    # 2. Admin မှ Reply နှိပ်၍ ဖောက်သည်ထံ စာပြန်ခြင်း
+    # Admin မှ Reply နှိပ်၍ ဖောက်သည်ထံ စာပြန်ခြင်း
     elif user.id == ADMIN_ID:
         if update.message.reply_to_message:
             original_msg = update.message.reply_to_message.text or update.message.reply_to_message.caption
@@ -182,13 +182,11 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
                 except Exception as e:
                     await update.message.reply_text(f"❌ စာပြန်ရာတွင် အမှားဖြစ်ပေါ်ပါသည်: {e}")
 
-    # 3. ဖောက်သည်မှ စာအထွေထွေ ပို့လာပါက OpenAI (AI) ဖြင့် အလိုအလျောက် ပြန်ပေးခြင်း + Admin ဆီ အကြောင်းကြားခြင်း
+    # ဖောက်သည် စာပို့လာပါက OpenAI Auto-reply + Admin အကြောင်းကြားခြင်း
     else:
-        # AI မှ စာပြန်ပေးခြင်း
         ai_reply = ask_openai(text)
         await update.message.reply_text(ai_reply)
 
-        # Admin ထံ စာလှမ်းပို့ပေးခြင်း
         admin_msg = (
             f"📩 **ဖောက်သည်ထံမှ စာအသစ် ရောက်ရှိပါသည်**\n\n"
             f"👤 **Name:** {user.full_name}\n"
@@ -203,7 +201,7 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 # ==========================================
-# FLASK WEB SERVER (For Render Port Binding)
+# FLASK WEB SERVER
 # ==========================================
 web_app = Flask(__name__)
 
@@ -219,16 +217,23 @@ def run_web():
 # ==========================================
 # MAIN EXECUTION
 # ==========================================
-if __name__ == '__main__':
+def main():
+    # Flask Server သီးသန့် Thread ဖြင့် စတင်ခြင်း
     web_thread = Thread(target=run_web)
     web_thread.daemon = True
     web_thread.start()
 
     print("Bot is starting polling...")
+    
+    # Telegram Bot Application တည်ဆောက်ခြင်း
     bot_app = Application.builder().token(BOT_TOKEN).build()
 
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(CallbackQueryHandler(button_click))
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
 
-    bot_app.run_polling(drop_pending_updates=True)
+    # Async Event Loop အဆင်ပြေစေရန် Polling စတင်ခြင်း
+    bot_app.run_polling(drop_pending_updates=True, stop_signals=None)
+
+if __name__ == '__main__':
+    main()
