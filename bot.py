@@ -9,7 +9,7 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Mess
 # ==========================================
 # CONFIGURATION
 # ==========================================
-BOT_TOKEN = "8727302993:AAFzD62UaT-wAmbcv6rc47P4ewmzUuLn9_8"
+BOT_TOKEN = "8727302993:AAF45_EolVjmyN0IpAexvfu-lrzt_ijZ1uc"
 
 # မိမိ၏ Telegram User ID ဂဏန်းအမှန် ထည့်ပါ (@userinfobot ထံမှ ရသော ID)
 ADMIN_ID = 1580210387 
