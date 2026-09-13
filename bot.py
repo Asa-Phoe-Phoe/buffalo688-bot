@@ -1,6 +1,7 @@
 import os
 from flask import Flask
 from threading import Thread
+from openai import OpenAI
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, InputMediaPhoto
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
@@ -8,12 +9,12 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Mess
 # CONFIGURATION
 # ==========================================
 BOT_TOKEN = "8727302993:AAFzD62UaT-wAmbcv6rc47P4ewmzUuLn9_8"
+ADMIN_ID = 1580210387  # မိမိ၏ Telegram User ID ဂဏန်းအမှန် ပြောင်းပါ
 
-# မိမိ၏ Telegram User ID ဂဏန်းအမှန်ကို ဒီနေရာတွင် ထည့်ပါ (@userinfobot ထံမှ ရသော ID)
-ADMIN_ID = 1580210387 
+# OpenAI Client ချိန်ညှိခြင်း (Environment Variable ထဲမှ Key ကို အလိုအလျောက် ယူပါမည်)
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# ပုံများကို images folder ထဲမဟုတ်ဘဲ root directory (အပြင်ဘက်) ထဲတွင် တိုက်ရိုက် ရှာရန် ပြင်ထားပါသည်
 IMAGES_DIR = BASE_DIR
 
 
@@ -55,6 +56,30 @@ async def send_photos(chat_id, context, keyword, caption_text):
     finally:
         for f in opened_files:
             f.close()
+
+
+# OpenAI ဖြင့် Auto Reply စာထုတ်ပေးသည့် Function
+def ask_openai(user_message):
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a friendly and polite female customer support admin for 'Buffalo688' online gaming site. "
+                        "Respond nicely in Myanmar language using polite tone (ending with ရှင့်/ပါရှင့်). "
+                        "Promote daily 5% cashback bonus if relevant. Keep answers helpful, warm, and concise."
+                    )
+                },
+                {"role": "user", "content": user_message}
+            ],
+            max_tokens=300
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        print(f"[OpenAI Error] {e}")
+        return "ဟုတ်ကဲ့ပါရှင့်၊ ခဏစောင့်ဆိုင်းပေးပါနော်။ အက်ဒမင်မှ အကြောင်းပြန်ပေးပါလိမ့်မည်ရှင့် ✨"
 
 
 # ==========================================
@@ -157,13 +182,19 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
                 except Exception as e:
                     await update.message.reply_text(f"❌ စာပြန်ရာတွင် အမှားဖြစ်ပေါ်ပါသည်: {e}")
 
-    # 3. ဖောက်သည်မှ စာပို့လာပါက Admin ထံ စာလှမ်းပို့ပေးခြင်း
+    # 3. ဖောက်သည်မှ စာအထွေထွေ ပို့လာပါက OpenAI (AI) ဖြင့် အလိုအလျောက် ပြန်ပေးခြင်း + Admin ဆီ အကြောင်းကြားခြင်း
     else:
+        # AI မှ စာပြန်ပေးခြင်း
+        ai_reply = ask_openai(text)
+        await update.message.reply_text(ai_reply)
+
+        # Admin ထံ စာလှမ်းပို့ပေးခြင်း
         admin_msg = (
             f"📩 **ဖောက်သည်ထံမှ စာအသစ် ရောက်ရှိပါသည်**\n\n"
             f"👤 **Name:** {user.full_name}\n"
             f"🆔 User ID: `{user.id}`\n"
-            f"💬 **Message:** {text}"
+            f"💬 **User:** {text}\n"
+            f"🤖 **AI Reply:** {ai_reply}"
         )
         try:
             await context.bot.send_message(chat_id=ADMIN_ID, text=admin_msg, parse_mode="Markdown")
