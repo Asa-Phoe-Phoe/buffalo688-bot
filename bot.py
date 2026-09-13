@@ -7,10 +7,10 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Mess
 # ==========================================
 # CONFIGURATION
 # ==========================================
-BOT_TOKEN = "8727302993:AAF45_EolVjmyN0IpAexvfu-lrzt_ijZ1uc"
+BOT_TOKEN = "8727302993:AAF45_EolVjmyN0IpAexvfu-1rzt_ijZ1uc"
 
-# မိမိ၏ Telegram User ID ဂဏန်းအမှန် ထည့်ပါ (@userinfobot ထံမှ ရသော ID)
-ADMIN_ID = 1580210387 
+# မိမိ၏ Telegram User ID ဂဏန်း (အမှန်ထည့်ထားပါသည်)
+ADMIN_ID = 1580210387
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 IMAGES_DIR = BASE_DIR
@@ -56,7 +56,6 @@ async def send_photos(chat_id, context, keyword, caption_text):
             f.close()
 
 
-# OpenAI အစား စာသား/စကားလုံးအလိုက် အလိုအလျောက် ပြန်ပေးသည့် စနစ်
 def custom_auto_reply(user_message):
     msg = user_message.lower().strip()
 
@@ -162,10 +161,10 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
         await update.message.reply_text("အဆင်မပြေတာရှိရင် အက်ဒမင်ထံ တိုက်ရိုက် ဆက်သွယ်မေးမြန်းနိုင်ပါသည်ခင်ဗျာ 👸")
 
     elif "ဆော့ဝဲဒေါင်းမည်" in text:
-        await update.message.reply_text("📲 **Buffalo688 ဆော့ဝဲဒေါင်းလုဒ်ရယူရန် လင့်ခ် -**\nhttps://m.buffalo688.club/auth/register?code=K8PYVL")
+        await update.message.reply_text("📲 Buffalo688 ဆော့ဝဲဒေါင်းလုဒ်ရယူရန် လင့်ခ် -\nhttps://m.buffalo688.club/auth/register?code=K8PYVL")
 
     elif "တိုက်ရိုက်လင့်" in text:
-        await update.message.reply_text("🌐 **Buffalo688 တိုက်ရိုက်ဆိုက်သို့ ဝင်ရောက်ရန် -**\nhttps://m.buffalo688.club/auth/register?code=K8PYVL")
+        await update.message.reply_text("🌐 Buffalo688 တိုက်ရိုက်ဆိုက်သို့ ဝင်ရောက်ရန် -\nhttps://m.buffalo688.club/auth/register?code=K8PYVL")
 
     elif "ငွေသွင်းနည်း" in text:
         await update.message.reply_text("📱 ဆော့ဝဲထဲကနေ တိုက်ရိုက် ငွေဖြည့်နည်းလေးကို ပုံလေးတွေနဲ့ တဆင့်ချင်းရှင်းပြပေးထားပါတယ်ရှင့် ✨")
@@ -178,36 +177,42 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
         await send_photos(chat_id, context, "withdraw", withdraw_caption)
 
     elif "ဆက်သွယ်ရန်" in text:
-        await update.message.reply_text("👸 **အက်ဒမင်ထံ တိုက်ရိုက် ဆက်သွယ်ရန် လင့်ခ် -**\nhttps://t.me/maylay18181")
+        await update.message.reply_text("👸 အက်ဒမင်ထံ တိုက်ရိုက် ဆက်သွယ်ရန် လင့်ခ် -\nhttps://t.me/maylay18181")
 
-    # 2. Admin မှ Reply နှိပ်၍ ဖောက်သည်ထံ စာပြန်ခြင်း
+    # 2. Admin (ADMIN_ID = 1580210387) မှ Reply နှိပ်၍ ဖောက်သည်ထံ စာပြန်ခြင်း
     elif user.id == ADMIN_ID:
         if update.message.reply_to_message:
-            original_msg = update.message.reply_to_message.text or update.message.reply_to_message.caption
-            if original_msg and "🆔 User ID:" in original_msg:
+            reply_msg = update.message.reply_to_message
+            target_text = reply_msg.text or reply_msg.caption or ""
+            
+            if "ID:" in target_text:
                 try:
-                    target_user_id = int(original_msg.split("🆔 User ID:")[1].split("\n")[0].replace("`", "").strip())
+                    lines = target_text.split("\n")
+                    user_id_line = [l for l in lines if "ID:" in l][0]
+                    target_user_id = int(user_id_line.split("ID:")[1].strip())
+                    
                     await context.bot.send_message(chat_id=target_user_id, text=text)
-                    await update.message.reply_text("✅ စာပြန်ပြီးပါပြီခင်ဗျာ။")
+                    await update.message.reply_text("✅ ဖောက်သည်ထံ စာပြန်ပြီးပါပြီခင်ဗျာ။")
                 except Exception as e:
-                    await update.message.reply_text(f"❌ စာပြန်ရာတွင် အမှားဖြစ်ပေါ်ပါသည်: {e}")
+                    print(f"[Admin Reply Error] {e}")
+                    await update.message.reply_text(f"❌ စာပြန်၍ မရပါ: {e}")
+            else:
+                await update.message.reply_text("⚠️ Reply နှိပ်ထားသော Message ထဲတွင် 'ID:' စာသား ပါဝင်ခြင်း မရှိပါခင်ဗျာ။")
 
-    # 3. ဖောက်သည်မှ စာအထွေထွေ ပို့လာပါက ကုတ်ထဲရှိ စာသားဖြင့် အလိုအလျောက် ပြန်ပေးခြင်း + Admin ဆီ အကြောင်းကြားခြင်း
+    # 3. ဖောက်သည်မှ စာပို့လာပါက Auto-Reply ပို့ခြင်း + Admin ထံ စာလှမ်းပို့ပေးခြင်း
     else:
-        # Rule-based auto reply
         auto_reply = custom_auto_reply(text)
         await update.message.reply_text(auto_reply)
 
-        # Admin ထံ စာလှမ်းပို့ပေးခြင်း
         admin_msg = (
-            f"📩 **ဖောက်သည်ထံမှ စာအသစ် ရောက်ရှိပါသည်**\n\n"
-            f"👤 **Name:** {user.full_name}\n"
-            f"🆔 User ID: `{user.id}`\n"
-            f"💬 **User:** {text}\n"
-            f"🤖 **Bot Reply:** {auto_reply}"
+            f"📩 ဖောက်သည်ထံမှ စာအသစ် ရောက်ရှိပါသည်\n\n"
+            f"👤 Name: {user.full_name}\n"
+            f"🆔 User ID: {user.id}\n"
+            f"💬 User Message: {text}\n"
+            f"🤖 Bot Reply: {auto_reply}"
         )
         try:
-            await context.bot.send_message(chat_id=ADMIN_ID, text=admin_msg, parse_mode="Markdown")
+            await context.bot.send_message(chat_id=ADMIN_ID, text=admin_msg)
         except Exception as e:
             print(f"[ERROR Admin Alert] {e}")
 
