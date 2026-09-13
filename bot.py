@@ -3,6 +3,7 @@ from flask import Flask
 from threading import Thread
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, InputMediaPhoto
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
+from openai import OpenAI
 
 # ==========================================
 # CONFIGURATION
@@ -10,7 +11,24 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Mess
 BOT_TOKEN = "8727302993:AAFzD62UaT-wAmbcv6rc47P4ewmzUuLn9_8"
 
 # မိမိ၏ Telegram User ID ဂဏန်းအမှန်ကို ဒီနေရာတွင် ထည့်ပါ (@userinfobot ထံမှ ရသော ID)
-ADMIN_ID = 1580210387 
+ADMIN_ID = 1580210387
+
+# ==========================================
+# AI CONFIGURATION
+# ==========================================
+# Render မှာ OPENAI_API_KEY ကို Environment Variable အနေနဲ့ ထည့်ပါ။
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+
+AI_SYSTEM_PROMPT = """မင်းက Buffalo688 Telegram customer service assistant ဖြစ်တယ်။
+Customer တွေနဲ့ မြန်မာလို သဘာဝကျကျ၊ ယဉ်ကျေးပြီး တိုတိုရှင်းရှင်း ပြောပါ။
+Customer က မေးတဲ့အကြောင်းအရာကို နားလည်ပြီး အရင်ဆုံး တိုက်ရိုက်ဖြေပါ။
+Bot မှာ သတ်မှတ်ထားတဲ့ button/function ရှိရင် အဲဒီ function ကို ဦးစားပေးပါ။
+မသေချာတဲ့ အချက်အလက်ကို မခန့်မှန်းပါနဲ့။ မသိရင် Admin ကို ဆက်သွယ်ဖို့ ပြောပါ။
+Password, OTP, API key, private token စတဲ့ လျှို့ဝှက်အချက်အလက်တွေ မတောင်းပါနဲ့။
+"""
+
+ai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+conversation_history = {}
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 IMAGES_DIR = BASE_DIR
@@ -156,16 +174,25 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
                 except Exception as e:
                     await update.message.reply_text(f"❌ စာပြန်ရာတွင် အမှားဖြစ်ပေါ်ပါသည်: {e}")
 
-    # 3. ဖောက်သည်မှ စာပို့လာပါက Admin ထံ စာလှမ်းပို့ပေးခြင်း
+    # 3. သတ်မှတ်ထားတဲ့ button မဟုတ်တဲ့ Customer message ကို AI ဖြေ
     else:
+        ai_reply = await ask_ai(user.id, text)
+        await update.message.reply_text(ai_reply)
+
+        # AI reply ပေးပြီး Admin ကို notification ပို့ထားမယ်
         admin_msg = (
-            f"📩 **ဖောက်သည်ထံမှ စာအသစ် ရောက်ရှိပါသည်**\n\n"
+            f"📩 **Customer Message**\n\n"
             f"👤 **Name:** {user.full_name}\n"
             f"🆔 User ID: `{user.id}`\n"
-            f"💬 **Message:** {text}"
+            f"💬 **Message:** {text}\n\n"
+            f"🤖 **AI Reply:** {ai_reply}"
         )
         try:
-            await context.bot.send_message(chat_id=ADMIN_ID, text=admin_msg, parse_mode="Markdown")
+            await context.bot.send_message(
+                chat_id=ADMIN_ID,
+                text=admin_msg,
+                parse_mode="Markdown"
+            )
         except Exception as e:
             print(f"[ERROR Admin Alert] {e}")
 
