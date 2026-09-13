@@ -1,8 +1,6 @@
 import os
-import asyncio
 from flask import Flask
 from threading import Thread
-from openai import OpenAI
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, InputMediaPhoto
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
@@ -16,9 +14,6 @@ ADMIN_ID = 1580210387
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 IMAGES_DIR = BASE_DIR
-
-# OpenAI Client (Render Environment Variable မှ OPENAI_API_KEY ကို ယူသုံးပါမည်)
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 
 # ==========================================
@@ -61,27 +56,41 @@ async def send_photos(chat_id, context, keyword, caption_text):
             f.close()
 
 
-def ask_openai(user_message):
-    try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a friendly and polite female customer support admin for 'Buffalo688' online gaming site. "
-                        "Respond nicely in Myanmar language using polite tone (ending with ရှင့်/ပါရှင့်). "
-                        "Promote daily 5% cashback bonus if relevant. Keep answers helpful, warm, and concise."
-                    )
-                },
-                {"role": "user", "content": user_message}
-            ],
-            max_tokens=300
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        print(f"[OpenAI Error] {e}")
-        return "ဟုတ်ကဲ့ပါရှင့်၊ ခဏစောင့်ဆိုင်းပေးပါနော်။ အက်ဒမင်မှ အကြောင်းပြန်ပေးပါလိမ့်မည်ရှင့် ✨"
+# OpenAI အစား စာသား/စကားလုံးအလိုက် အလိုအလျောက် ပြန်ပေးသည့် စနစ်
+def custom_auto_reply(user_message):
+    msg = user_message.lower().strip()
+
+    # 1. မင်္ဂလာပါ / နှုတ်ဆက်ခြင်း
+    if any(k in msg for k in ["hi", "hello", "မင်္ဂလာပါ", "ဟဲလို"]):
+        return "မင်္ဂလာပါရှင့် ✨ Buffalo688 မှ ကြိုဆိုပါတယ်ရှင့်။ ဘာများ ကူညီပေးရမလဲရှင့်?"
+
+    # 2. အကောင့်ဖွင့်ခြင်း
+    elif any(k in msg for k in ["အကောင့်ဖွင့်", "acc ဖွင့်", "account", "ဖွင့်ချင်"]):
+        return "ဟုတ်ကဲ့ပါရှင့် အကောင့်သစ် ဖွင့်ပေးဖို့အတွက် ဖုန်းနံပါတ်လေး ပို့ပေးပါဦးနော် ✨\n\nအကောင့်ဖွင့်ပြီးပါက နေ့စဉ် 5% Cash Back ဘောနပ်စ် ရရှိပါမည်ရှင့် 🎁"
+
+    # 3. ငွေသွင်းနည်း
+    elif any(k in msg for k in ["ငွေသွင်း", "ငွေဖြည့်", "သွင်းနည်း", "deposit"]):
+        return "📱 ဆော့ဝဲထဲကနေ တိုက်ရိုက် ငွေဖြည့်နိုင်ပါတယ်ရှင့်။ ငွေသွင်းနည်း ပုံများကို '💰 ငွေသွင်းနည်း' ခလုတ်ကို နှိပ်၍ ကြည့်ရှုနိုင်ပါတယ်ရှင့် ✨"
+
+    # 4. ငွေထုတ်နည်း
+    elif any(k in msg for k in ["ငွေထုတ်", "ထုတ်နည်း", "withdraw"]):
+        return "📱 ဆော့ဝဲထဲကနေ တိုက်ရိုက် ငွေထုတ်ယူနိုင်ပါတယ်ရှင့်။ ငွေထုတ်နည်း ပုံများကို '💸 ငွေထုတ်နည်း' ခလုတ်ကို နှိပ်၍ ကြည့်ရှုနိုင်ပါတယ်ရှင့် ✨"
+
+    # 5. ဘောနပ်စ် / ပရိုမိုးရှင်း
+    elif any(k in msg for k in ["bonus", "ဘောနပ်", "ပရိုမိုးရှင်း", "cashback", "ရှုံးကြေး"]):
+        return "ညီမတို့ Buffalo688 မှာ ကံမကောင်းလို့ ရှုံးသွားခဲ့ရင်တောင် နေ့စဉ် 5% Cash Back ဘောနပ်စ် ပြန်လည်ပေးအပ်နေပါတယ်ရှင့် ✨"
+
+    # 6. အနည်းဆုံး သွင်းငွေ/ထုတ်ငွေ
+    elif any(k in msg for k in ["အနည်းဆုံး", "ဘယ်လောက်သွင်း", "ဘယ်လောက်ထုတ်"]):
+        return "အနည်းဆုံး ငွေသွင်း/ငွေထုတ် ပမာဏမှာ 3,000 ကျပ် ဖြစ်ပါတယ်ရှင့် ✨"
+
+    # 7. ဆော့ဝဲဒေါင်းလုဒ်
+    elif any(k in msg for k in ["app", "ဆော့ဝဲ", "download", "ဒေါင်း"]):
+        return "📲 Buffalo688 ဆော့ဝဲဒေါင်းလုဒ်ရယူရန် လင့်ခ် -\nhttps://m.buffalo688.club/auth/register?code=K8PYVL"
+
+    # 8. သီးသန့် အဖြေမရှိပါက မူလအတိုင်း စောင့်ခိုင်းသည့် စာ
+    else:
+        return "ဟုတ်ကဲ့ပါရှင့်၊ မေးမြန်းထားသော စာအတွက် အက်ဒမင်မှ ခဏအတွင်း အကြောင်းပြန်ပေးပါလိမ့်မည်ရှင့် ✨"
 
 
 # ==========================================
@@ -146,6 +155,7 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
     chat_id = update.message.chat_id
     user = update.message.from_user
 
+    # 1. မူလ Bot ခလုတ် စာသားများကို တုံ့ပြန်ခြင်း
     if "အကောင့်ဖွင့်မယ်" in text:
         await update.message.reply_text("ဟုတ်ကဲ့ပါရှင့် အကောင့်သစ်လေး ဖွင့်ပေးဖို့အတွက် အစ်ကိုရဲ့ ဖုန်းနံပါတ်လေး ပြောပေးပါဦးရှင့် ✨🌸")
         await update.message.reply_text("အကောင့်ဖွင့်ပြီးပါက နေ့စဉ် 5% Cash Back ဘောနပ်စ် ရရှိပါမည်ရှင့် 🎁")
@@ -170,7 +180,7 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
     elif "ဆက်သွယ်ရန်" in text:
         await update.message.reply_text("👸 **အက်ဒမင်ထံ တိုက်ရိုက် ဆက်သွယ်ရန် လင့်ခ် -**\nhttps://t.me/maylay18181")
 
-    # Admin မှ Reply နှိပ်၍ ဖောက်သည်ထံ စာပြန်ခြင်း
+    # 2. Admin မှ Reply နှိပ်၍ ဖောက်သည်ထံ စာပြန်ခြင်း
     elif user.id == ADMIN_ID:
         if update.message.reply_to_message:
             original_msg = update.message.reply_to_message.text or update.message.reply_to_message.caption
@@ -182,17 +192,19 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
                 except Exception as e:
                     await update.message.reply_text(f"❌ စာပြန်ရာတွင် အမှားဖြစ်ပေါ်ပါသည်: {e}")
 
-    # ဖောက်သည် စာပို့လာပါက OpenAI Auto-reply + Admin အကြောင်းကြားခြင်း
+    # 3. ဖောက်သည်မှ စာအထွေထွေ ပို့လာပါက ကုတ်ထဲရှိ စာသားဖြင့် အလိုအလျောက် ပြန်ပေးခြင်း + Admin ဆီ အကြောင်းကြားခြင်း
     else:
-        ai_reply = ask_openai(text)
-        await update.message.reply_text(ai_reply)
+        # Rule-based auto reply
+        auto_reply = custom_auto_reply(text)
+        await update.message.reply_text(auto_reply)
 
+        # Admin ထံ စာလှမ်းပို့ပေးခြင်း
         admin_msg = (
             f"📩 **ဖောက်သည်ထံမှ စာအသစ် ရောက်ရှိပါသည်**\n\n"
             f"👤 **Name:** {user.full_name}\n"
             f"🆔 User ID: `{user.id}`\n"
             f"💬 **User:** {text}\n"
-            f"🤖 **AI Reply:** {ai_reply}"
+            f"🤖 **Bot Reply:** {auto_reply}"
         )
         try:
             await context.bot.send_message(chat_id=ADMIN_ID, text=admin_msg, parse_mode="Markdown")
@@ -218,21 +230,18 @@ def run_web():
 # MAIN EXECUTION
 # ==========================================
 def main():
-    # Flask Server သီးသန့် Thread ဖြင့် စတင်ခြင်း
     web_thread = Thread(target=run_web)
     web_thread.daemon = True
     web_thread.start()
 
     print("Bot is starting polling...")
     
-    # Telegram Bot Application တည်ဆောက်ခြင်း
     bot_app = Application.builder().token(BOT_TOKEN).build()
 
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(CallbackQueryHandler(button_click))
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
 
-    # Async Event Loop အဆင်ပြေစေရန် Polling စတင်ခြင်း
     bot_app.run_polling(drop_pending_updates=True, stop_signals=None)
 
 if __name__ == '__main__':
