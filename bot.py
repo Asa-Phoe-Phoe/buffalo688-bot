@@ -10,7 +10,7 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Mess
 BOT_TOKEN = "8790787787:AAF1j0Ct-2cK4WwStG1JneIzsk3_n9MKOkk"
 
 # မိမိ၏ Telegram User ID ဂဏန်း (အမှန်ထည့်ထားပါသည်)
-ADMIN_ID = 1580210387
+ADMIN_ID = 8621413166
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 IMAGES_DIR = BASE_DIR
