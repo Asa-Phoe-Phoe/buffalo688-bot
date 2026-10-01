@@ -2,6 +2,7 @@ import os
 import requests
 from flask import Flask
 from threading import Thread
+from supabase import create_client, Client
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, InputMediaPhoto
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
@@ -11,8 +12,11 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Mess
 BOT_TOKEN = "8790787787:AAF1j0Ct-2cK4WwStG1JneIzsk3_n9MKOkk"
 ADMIN_ID = 8621413166
 
-SALESMARTLY_API_TOKEN = os.environ.get("SALESMARTLY_API_TOKEN", "YOUR_SALESMARTLY_API_TOKEN_HERE")
-SALESMARTLY_API_URL = "https://api.salesmartly.com/v1/messages"
+# Supabase Credentials (Render Environment Variables မှတဆင့် ဖတ်ယူမည်)
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 IMAGES_DIR = BASE_DIR
@@ -58,22 +62,19 @@ async def send_photos(chat_id, context, keyword, caption_text):
             f.close()
 
 
-def send_to_salesmartly(user, message_text):
+def save_message_to_supabase(user_id, name, message_text, sender_type):
+    """Telegram မှ ဝင်လာသော စာများကို Supabase Database သို့ သိမ်းဆည်းပေးခြင်း"""
     try:
-        headers = {
-            "Authorization": f"Bearer {SALESMARTLY_API_TOKEN}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "user_id": str(user.id),
-            "name": user.full_name,
-            "message": message_text,
-            "channel": "telegram"
-        }
-        response = requests.post(SALESMARTLY_API_URL, json=payload, headers=headers, timeout=5)
-        print(f"[SaleSmartly API] Response: {response.status_code}")
+        if SUPABASE_URL and SUPABASE_KEY:
+            data = {
+                "user_id": str(user_id),
+                "name": name,
+                "message": message_text,
+                "sender": sender_type
+            }
+            supabase.table("messages").insert(data).execute()
     except Exception as e:
-        print(f"[ERROR SaleSmartly API] {e}")
+        print(f"[Supabase Error] {e}")
 
 
 def custom_auto_reply(user_message):
@@ -145,7 +146,7 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif query.data == "deposit":
         await query.message.reply_text("📱 ဆော့ဝဲထဲကနေ တိုက်ရိုက် ငွေဖြည့်နည်းလေးကို ပုံလေးတွေနဲ့ တဆင့်ချင်းရှင်းပြပေးထားပါတယ်ရှင့် ✨")
-        deposit_caption = """⚠️ အချက်အလက်လေး မှန်ကန်အောင်တင်ပေးပါနော် 💯\n\n⚡️ အချက်အလက်လေးမှန်ကန်ရင် ၁၀ စက္ကန့်အတွင်း ဂိမ်းထဲပိုက်ဆံရောက်လာပါမယ်ရှင့် 📲💸"""
+        deposit_caption = """⚠️ အချက်အလက်လေး မှန်ကန်အောင်တင်ပေးပါနော် 💯\n\n⚡️️ အချက်အလက်လေးမှန်ကန်ရင် ၁၀ စက္ကန့်အတွင်း ဂိမ်းထဲပိုက်ဆံရောက်လာပါမယ်ရှင့် 📲💸"""
         await send_photos(query.message.chat_id, context, "deposit", deposit_caption)
 
     elif query.data == "withdraw":
@@ -159,8 +160,9 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
     chat_id = update.message.chat_id
     user = update.message.from_user
 
+    # Admin မဟုတ်လျှင် Supabase သို့ User စာကို သိမ်းမည်
     if user.id != ADMIN_ID:
-        send_to_salesmartly(user, text)
+        save_message_to_supabase(user.id, user.full_name, text, "user")
 
     if "အကောင့်ဖွင့်မယ်" in text:
         await update.message.reply_text("ဟုတ်ကဲ့ပါရှင့် အကောင့်သစ်လေး ဖွင့်ပေးဖို့အတွက် အစ်ကိုရဲ့ ဖုန်းနံပါတ်လေး ပြောပေးပါဦးရှင့် ✨🌸")
@@ -190,6 +192,7 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
                     user_id_line = [l for l in lines if "ID:" in l][0]
                     target_user_id = int(user_id_line.split("ID:")[1].strip())
                     await context.bot.send_message(chat_id=target_user_id, text=text)
+                    save_message_to_supabase(target_user_id, "Admin", text, "admin")
                     await update.message.reply_text("✅ ဖောက်သည်ထံ စာပြန်ပြီးပါပြီခင်ဗျာ။")
                 except Exception as e:
                     print(f"[Admin Reply Error] {e}")
@@ -220,7 +223,7 @@ web_app = Flask(__name__)
 
 @web_app.route('/')
 def home():
-    return "Buffalo688 Bot is Alive!"
+    return "Buffalo688 Bot is Alive with Supabase!"
 
 def run_web():
     port = int(os.environ.get("PORT", 8080))
