@@ -1,249 +1,144 @@
 import os
 import requests
-from flask import Flask
-from threading import Thread
+from flask import Flask, render_template_string, request, redirect, url_for
+from telegram import Update
+from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
 from supabase import create_client, Client
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, InputMediaPhoto
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
-# ==========================================
-# CONFIGURATION
-# ==========================================
-BOT_TOKEN = "8790787787:AAF1j0Ct-2cK4WwStG1JneIzsk3_n9MKOkk"
-ADMIN_ID = 8621413166
+# Environment Variables များကို ချိတ်ဆက်ခြင်း
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+ADMIN_ID = os.getenv("ADMIN_ID")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
-# Supabase Credentials (Render Environment Variables မှတဆင့် ဖတ်ယူမည်)
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
-
+# Supabase Client တည်ဆောက်ခြင်း
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-IMAGES_DIR = BASE_DIR
+# Flask App တည်ဆောက်ခြင်း (Web Dashboard အတွက်)
+app = Flask(__name__)
 
+# --- WEB ADMIN DASHBOARD HTML TEMPLATE ---
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Telegram Bot</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h2 { color: #333; text-align: center; }
+        .message-box { border-bottom: 1px solid #eee; padding: 15px 0; }
+        .user-info { font-weight: bold; color: #007bff; }
+        .timestamp { font-size: 12px; color: #888; float: right; }
+        .text { margin: 8px 0; font-size: 15px; color: #333; }
+        .sender-admin { color: #28a745; font-weight: bold; }
+        .sender-user { color: #dc3545; font-weight: bold; }
+        .reply-form { margin-top: 10px; display: flex; gap: 10px; }
+        .reply-form input[type="text"] { flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        .reply-form button { padding: 8px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .reply-form button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>💬 Telegram Bot Admin Dashboard</h2>
+        <hr>
+        {% for msg in messages %}
+        <div class="message-box">
+            <span class="timestamp">{{ msg.created_at }}</span>
+            <div class="user-info">User ID: {{ msg.user_id }} | Name: {{ msg.name }}</div>
+            <div class="text">
+                {% if msg.sender == 'admin' %}
+                    <span class="sender-admin">[Admin to User]:</span>
+                {% else %}
+                    <span class="sender-user">[User]:</span>
+                {% endif %}
+                {{ msg.message }}
+            </div>
+            
+            <!-- Web ကနေ တိုက်ရိုက် စာပြန်ရန် Form -->
+            <form class="reply-form" action="/reply" method="POST">
+                <input type="hidden" name="user_id" value="{{ msg.user_id }}">
+                <input type="text" name="reply_message" placeholder="ဖောက်သည်ဆီသို့ စာပို့ရန်..." required>
+                <button type="submit">စာပို့မည်</button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+</body>
+</html>
+"""
 
-# ==========================================
-# HELPER FUNCTIONS
-# ==========================================
-def get_images_by_keyword(keyword):
-    found_files = []
-    if os.path.exists(IMAGES_DIR):
-        all_files = sorted(os.listdir(IMAGES_DIR))
-        for filename in all_files:
-            if keyword.lower() in filename.lower():
-                full_path = os.path.join(IMAGES_DIR, filename)
-                found_files.append(full_path)
-    return found_files
+@app.route("/")
+def admin_dashboard():
+    # Supabase မှ မက်ဆေ့ချ်များကို အသစ်ဆုံး အရင်ပေါ်အောင် ဆွဲထုတ်ခြင်း
+    response = supabase.table("messages").select("*").order("id", desc=True).limit(50).execute()
+    messages = response.data if response.data else []
+    return render_template_string(HTML_TEMPLATE, messages=messages)
 
-
-async def send_photos(chat_id, context, keyword, caption_text):
-    image_paths = get_images_by_keyword(keyword)
-    opened_files = []
-    media_group = []
-
-    try:
-        for path in image_paths:
-            f = open(path, "rb")
-            opened_files.append(f)
-            if len(media_group) == 0:
-                media_group.append(InputMediaPhoto(f, caption=caption_text))
-            else:
-                media_group.append(InputMediaPhoto(f))
-
-        if media_group:
-            await context.bot.send_media_group(chat_id=chat_id, media=media_group)
-        else:
-            await context.bot.send_message(chat_id=chat_id, text=f"{keyword} စာသားပါသော ပုံများကို ရှာမတွေ့ပါ။")
-    except Exception as e:
-        print(f"[ERROR Photo] {e}")
-        await context.bot.send_message(chat_id=chat_id, text=f"အမှားဖြစ်ပေါ်ပါသည်: {e}")
-    finally:
-        for f in opened_files:
-            f.close()
-
-
-def save_message_to_supabase(user_id, name, message_text, sender_type):
-    """Telegram မှ ဝင်လာသော စာများကို Supabase Database သို့ သိမ်းဆည်းပေးခြင်း"""
-    try:
-        if SUPABASE_URL and SUPABASE_KEY:
-            data = {
-                "user_id": str(user_id),
-                "name": name,
-                "message": message_text,
-                "sender": sender_type
-            }
-            supabase.table("messages").insert(data).execute()
-    except Exception as e:
-        print(f"[Supabase Error] {e}")
-
-
-def custom_auto_reply(user_message):
-    msg = user_message.lower().strip()
-
-    if any(k in msg for k in ["hi", "hello", "မင်္ဂလာပါ", "ဟဲလို"]):
-        return "မင်္ဂလာပါရှင့် ✨ Buffalo688 မှ ကြိုဆိုပါတယ်ရှင့်။ ဘာများ ကူညီပေးရမလဲရှင့်?"
-    elif any(k in msg for k in ["အကောင့်ဖွင့်", "acc ဖွင့်", "account", "ဖွင့်ချင်"]):
-        return "ဟုတ်ကဲ့ပါရှင့် အကောင့်သစ် ဖွင့်ပေးဖို့အတွက် ဖုန်းနံပါတ်လေး ပို့ပေးပါဦးနော် ✨\n\nအကောင့်ဖွင့်ပြီးပါက နေ့စဉ် 5% Cash Back ဘောနပ်စ် ရရှိပါမည်ရှင့် 🎁"
-    elif any(k in msg for k in ["ငွေသွင်း", "ငွေဖြည့်", "သွင်းနည်း", "deposit"]):
-        return "📱 ဆော့ဝဲထဲကနေ တိုက်ရိုက် ငွေဖြည့်နိုင်ပါတယ်ရှင့်။ ငွေသွင်းနည်း ပုံများကို '💰 ငွေသွင်းနည်း' ခလုတ်ကို နှိပ်၍ ကြည့်ရှုနိုင်ပါတယ်ရှင့် ✨"
-    elif any(k in msg for k in ["ငွေထုတ်", "ထုတ်နည်း", "withdraw"]):
-        return "📱 ဆော့ဝဲထဲကနေ တိုက်ရိုက် ငွေထုတ်ယူနိုင်ပါတယ်ရှင့်။ ငွေထုတ်နည်း ပုံများကို '💸 ငွေထုတ်နည်း' ခလုတ်ကို နှိပ်၍ ကြည့်ရှုနိုင်ပါတယ်ရှင့် ✨"
-    elif any(k in msg for k in ["bonus", "ဘောနပ်", "ပရိုမိုးရှင်း", "cashback", "ရှုံးကြေး"]):
-        return "ညီမတို့ Buffalo688 မှာ ကံမကောင်းလို့ ရှုံးသွားခဲ့ရင်တောင် နေ့စဉ် 5% Cash Back ဘောနပ်စ် ပြန်လည်ပေးအပ်နေပါတယ်ရှင့် ✨"
-    elif any(k in msg for k in ["အနည်းဆုံး", "ဘယ်လောက်သွင်း", "ဘယ်လောက်ထုတ်"]):
-        return "အနည်းဆုံး ငွေသွင်း/ငွေထုတ် ပမာဏမှာ 3,000 ကျပ် ဖြစ်ပါတယ်ရှင့် ✨"
-    elif any(k in msg for k in ["app", "ဆော့ဝဲ", "download", "ဒေါင်း"]):
-        return "📲 Buffalo688 ဆော့ဝဲဒေါင်းလုဒ်ရယူရန် လင့်ခ် -\nhttps://m.buffalo688.club/auth/register?code=K8PYVL"
-    else:
-        return "ဟုတ်ကဲ့ပါရှင့်၊ မေးမြန်းထားသော စာအတွက် အက်ဒမင်မှ ခဏအတွင်း အကြောင်းပြန်ပေးပါလိမ့်မည်ရှင့် ✨"
-
-
-# ==========================================
-# TELEGRAM BOT HANDLERS
-# ==========================================
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    inline_keyboard = [
-        [InlineKeyboardButton("🎰 ကျဝှဲဂိမ်း အကောင့်ဖွင့်မယ်", callback_data="register")],
-        [InlineKeyboardButton("▶️ ဆော့ဝဲဒေါင်းမယ်", url="https://m.buffalo688.club/auth/register?code=K8PYVL")],
-        [InlineKeyboardButton("🌐 တိုက်ရိုက်လင့်", url="https://m.buffalo688.club/auth/register?code=K8PYVL")],
-        [
-            InlineKeyboardButton("💰 ငွေသွင်းနည်း", callback_data="deposit"),
-            InlineKeyboardButton("💸 ငွေထုတ်နည်း", callback_data="withdraw")
-        ],
-        [InlineKeyboardButton("👸 အက်ဒမင်နဲ့ ဆက်သွယ်ရန်", url="https://t.me/maylay18181")]
-    ]
-
-    reply_keyboard = [
-        ["🐂 အကောင့်ဖွင့်မယ် 🚀"],
-        ["▶️ ဆော့ဝဲဒေါင်းမည်", "🌐 တိုက်ရိုက်လင့်"],
-        ["💰 ငွေသွင်းနည်း", "💸 ငွေထုတ်နည်း"],
-        ["👸 အကောင့် ဆက်သွယ်ရန်"]
-    ]
-
-    inline_markup = InlineKeyboardMarkup(inline_keyboard)
-    reply_markup = ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True)
-
-    welcome_text = """🌸 မင်္ဂလာပါရှင့် 🌸
-
-Buffalo688 ကျွဲဂိမ်းတိုက်ရိုက်ဆိုက်ကြီးကနေ ကြိုဆိုပါတယ်။
-
-ညီမတို့ဂိမ်းဆိုဒ်ကြီး မှာ 
-ကံမကောင်းလို့ ရှုံးသွားရင်တောင်
-နေ့စဉ် 5% ပြန်ရမယ်"""
-
-    await update.message.reply_text(welcome_text, reply_markup=reply_markup)
-    await update.message.reply_text("အောက်ပါ ခလုတ်များကို အသုံးပြုနိုင်ပါသည် -", reply_markup=inline_markup)
-
-
-async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-
-    if query.data == "register":
-        await query.message.reply_text("ဟုတ်ကဲ့ပါရှင့် အကောင့်သစ်လေး ဖွင့်ပေးဖို့အတွက် အစ်ကိုရဲ့ ဖုန်းနံပါတ်လေး ပြောပေးပါဦးရှင့် ✨🌸")
-        await query.message.reply_text("အကောင့်ဖွင့်ပြီးပါက နေ့စဉ် 5% Cash Back ဘောနပ်စ် ရရှိပါမည်ရှင့် 🎁")
-        await query.message.reply_text("အဆင်မပြေတာရှိရင် အက်ဒမင်ထံ တိုက်ရိုက် ဆက်သွယ်မေးမြန်းနိုင်ပါသည်ခင်ဗျာ 👸")
-
-    elif query.data == "deposit":
-        await query.message.reply_text("📱 ဆော့ဝဲထဲကနေ တိုက်ရိုက် ငွေဖြည့်နည်းလေးကို ပုံလေးတွေနဲ့ တဆင့်ချင်းရှင်းပြပေးထားပါတယ်ရှင့် ✨")
-        deposit_caption = """⚠️ အချက်အလက်လေး မှန်ကန်အောင်တင်ပေးပါနော် 💯\n\n⚡️️ အချက်အလက်လေးမှန်ကန်ရင် ၁၀ စက္ကန့်အတွင်း ဂိမ်းထဲပိုက်ဆံရောက်လာပါမယ်ရှင့် 📲💸"""
-        await send_photos(query.message.chat_id, context, "deposit", deposit_caption)
-
-    elif query.data == "withdraw":
-        await query.message.reply_text("📱 ဆော့ဝဲထဲကနေ တိုက်ရိုက် ငွေထုတ်နည်းလေးကို ပုံလေးတွေနဲ့ တဆင့်ချင်းရှင်းပြပေးထားပါတယ်ရှင့် ✨")
-        withdraw_caption = """⚡️ အချက်အလက်လေးမှန်ကန်အောင် ထည့်ပြီးရင် 10 စက္ကန့်အတွင်း Kpay, Wave ထဲ ထုတ်ငွေလေးဝင်လာပါမယ်ရှင့် 📲💸"""
-        await send_photos(query.message.chat_id, context, "withdraw", withdraw_caption)
-
-
-async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    chat_id = update.message.chat_id
-    user = update.message.from_user
-
-    # Admin မဟုတ်လျှင် Supabase သို့ User စာကို သိမ်းမည်
-    if user.id != ADMIN_ID:
-        save_message_to_supabase(user.id, user.full_name, text, "user")
-
-    if "အကောင့်ဖွင့်မယ်" in text:
-        await update.message.reply_text("ဟုတ်ကဲ့ပါရှင့် အကောင့်သစ်လေး ဖွင့်ပေးဖို့အတွက် အစ်ကိုရဲ့ ဖုန်းနံပါတ်လေး ပြောပေးပါဦးရှင့် ✨🌸")
-        await update.message.reply_text("အကောင့်ဖွင့်ပြီးပါက နေ့စဉ် 5% Cash Back ဘောနပ်စ် ရရှိပါမည်ရှင့် 🎁")
-        await update.message.reply_text("အဆင်မပြေတာရှိရင် အက်ဒမင်ထံ တိုက်ရိုက် ဆက်သွယ်မေးမြန်းနိုင်ပါသည်ခင်ဗျာ 👸")
-    elif "ဆော့ဝဲဒေါင်းမည်" in text:
-        await update.message.reply_text("📲 Buffalo688 ဆော့ဝဲဒေါင်းလုဒ်ရယူရန် လင့်ခ် -\nhttps://m.buffalo688.club/auth/register?code=K8PYVL")
-    elif "တိုက်ရိုက်လင့်" in text:
-        await update.message.reply_text("🌐 Buffalo688 တိုက်ရိုက်ဆိုက်သို့ ဝင်ရောက်ရန် -\nhttps://m.buffalo688.club/auth/register?code=K8PYVL")
-    elif "ငွေသွင်းနည်း" in text:
-        await update.message.reply_text("📱 ဆော့ဝဲထဲကနေ တိုက်ရိုက် ငွေဖြည့်နည်းလေးကို ပုံလေးတွေနဲ့ တဆင့်ချင်းရှင်းပြပေးထားပါတယ်ရှင့် ✨")
-        deposit_caption = """⚠️ အချက်အလက်လေး မှန်ကန်အောင်တင်ပေးပါနော် 💯\n\n⚡️ အချက်အလက်လေးမှန်ကန်ရင် ၁၀ စက္ကန့်အတွင်း ဂိမ်းထဲပိုက်ဆံရောက်လာပါမယ်ရှင့် 📲💸"""
-        await send_photos(chat_id, context, "deposit", deposit_caption)
-    elif "ငွေထုတ်နည်း" in text:
-        await update.message.reply_text("📱 ဆော့ဝဲထဲကနေ တိုက်ရိုက် ငွေထုတ်နည်းလေးကို ပုံလေးတွေနဲ့ တဆင့်ချင်းရှင်းပြပေးထားပါတယ်ရှင့် ✨")
-        withdraw_caption = """⚡️ အချက်အလက်လေးမှန်ကန်အောင် ထည့်ပြီးရင် 10 စက္ကန့်အတွင်း Kpay, Wave ထဲ ထုတ်ငွေလေးဝင်လာပါမယ်ရှင့် 📲💸"""
-        await send_photos(chat_id, context, "withdraw", withdraw_caption)
-    elif "ဆက်သွယ်ရန်" in text:
-        await update.message.reply_text("👸 အက်ဒမင်ထံ တိုက်ရိုက် ဆက်သွယ်ရန် လင့်ခ် -\nhttps://t.me/maylay18181")
-    elif user.id == ADMIN_ID:
-        if update.message.reply_to_message:
-            reply_msg = update.message.reply_to_message
-            target_text = reply_msg.text or reply_msg.caption or ""
-            if "ID:" in target_text:
-                try:
-                    lines = target_text.split("\n")
-                    user_id_line = [l for l in lines if "ID:" in l][0]
-                    target_user_id = int(user_id_line.split("ID:")[1].strip())
-                    await context.bot.send_message(chat_id=target_user_id, text=text)
-                    save_message_to_supabase(target_user_id, "Admin", text, "admin")
-                    await update.message.reply_text("✅ ဖောက်သည်ထံ စာပြန်ပြီးပါပြီခင်ဗျာ။")
-                except Exception as e:
-                    print(f"[Admin Reply Error] {e}")
-                    await update.message.reply_text(f"❌ စာပြန်၍ မရပါ: {e}")
-            else:
-                await update.message.reply_text("⚠️ Reply နှိပ်ထားသော Message ထဲတွင် 'ID:' စာသား ပါဝင်ခြင်း မရှိပါခင်ဗျာ။")
-    else:
-        auto_reply = custom_auto_reply(text)
-        await update.message.reply_text(auto_reply)
-
-        admin_msg = (
-            f"📩 ဖောက်သည်ထံမှ စာအသစ် ရောက်ရှိပါသည်\n\n"
-            f"👤 Name: {user.full_name}\n"
-            f"🆔 User ID: {user.id}\n"
-            f"💬 User Message: {text}\n"
-            f"🤖 Bot Reply: {auto_reply}"
-        )
-        try:
-            await context.bot.send_message(chat_id=ADMIN_ID, text=admin_msg)
-        except Exception as e:
-            print(f"[ERROR Admin Alert] {e}")
-
-
-# ==========================================
-# FLASK WEB SERVER & MAIN
-# ==========================================
-web_app = Flask(__name__)
-
-@web_app.route('/')
-def home():
-    return "Buffalo688 Bot is Alive with Supabase!"
-
-def run_web():
-    port = int(os.environ.get("PORT", 8080))
-    web_app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
-
-
-def main():
-    web_thread = Thread(target=run_web)
-    web_thread.daemon = True
-    web_thread.start()
-
-    print("Bot is starting polling...")
+@app.route("/reply", methods=["POST"])
+def web_reply():
+    user_id = request.form.get("user_id")
+    reply_message = request.form.get("reply_message")
     
-    bot_app = Application.builder().token(BOT_TOKEN).build()
+    if user_id and reply_message:
+        # Telegram Bot API ကိုသုံးပြီး ဖောက်သည်ဆီ တိုက်ရိုက်ပို့ခြင်း
+        url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+        payload = {
+            "chat_id": user_id,
+            "text": f"👑 **Admin မှ တိုက်ရိုက်ပြောကြားချက်:**\n\n{reply_message}",
+            "parse_mode": "Markdown"
+        }
+        requests.post(url, json=payload)
+        
+        # Supabase ထဲသို့ Admin ရဲ့ ပို့လိုက်သော မက်ဆေ့ချ်ကို မှတ်တမ်းတင်ခြင်း
+        supabase.table("messages").insert({
+            "user_id": str(user_id),
+            "name": "Admin",
+            "message": reply_message,
+            "sender": "admin"
+        }).execute()
+        
+    return redirect(url_for('admin_dashboard'))
 
-    bot_app.add_handler(CommandHandler("start", start))
-    bot_app.add_handler(CallbackQueryHandler(button_click))
-    bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
 
-    bot_app.run_polling(drop_pending_updates=True, stop_signals=None)
+# --- TELEGRAM BOT LOGIC ---
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    text = update.message.text
+    user_id = str(user.id)
+    name = f"{user.first_name or ''} {user.last_name or ''}".strip()
 
-if __name__ == '__main__':
-    main()
+    # ဖောက်သည်ဆီက စာဝင်လာရင် Supabase ထဲ သိမ်းမည်
+    supabase.table("messages").insert({
+        "user_id": user_id,
+        "name": name,
+        "message": text,
+        "sender": "user"
+    }).execute()
+
+    # Admin ထံသို့ Forward လုပ်ပေးမည်
+    if user_id != str(ADMIN_ID):
+        forward_text = f"📩 **စာအသစ်ရောက်ရှိပါပြီ**\n👤 **နာမည်:** {name}\n🆔 **ID:** `{user_id}`\n\n💬 **စာသား:** {text}"
+        await context.bot.send_message(chat_id=ADMIN_ID, text=forward_text, parse_mode="Markdown")
+        await update.message.reply_text("မင်္ဂလာပါရှင့်။ မက်ဆေ့ချ်ကို လက်ခံရရှိပါပြီ။ အမြန်ဆုံး ပြန်လည်ဆက်သွယ်ပေးပါမည်။")
+
+
+# --- START BOTH FLASK & BOT ---
+if __name__ == "__main__":
+    from threading import Thread
+    
+    # Telegram Bot ကို Background Thread ဖြင့် အလုပ်လုပ်ခိုင်းခြင်း
+    def run_telegram_bot():
+        app_bot = ApplicationBuilder().token(TOKEN).build()
+        app_bot.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
+        app_bot.run_polling()
+
+    bot_thread = Thread(target=run_telegram_bot)
+    bot_thread.start()
+
+    # Render ပေါ်တွင် Flask Web Server ကို စတင်ခြင်း (Port 10000 ဖြင့်)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
