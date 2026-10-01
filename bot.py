@@ -1,4 +1,5 @@
 import os
+import requests
 from flask import Flask
 from threading import Thread
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, InputMediaPhoto
@@ -11,6 +12,10 @@ BOT_TOKEN = "8790787787:AAF1j0Ct-2cK4WwStG1JneIzsk3_n9MKOkk"
 
 # မိမိ၏ Telegram User ID ဂဏန်း (အမှန်ထည့်ထားပါသည်)
 ADMIN_ID = 8621413166
+
+# SaleSmartly API Configuration (ကိုယ့်ရဲ့ SaleSmartly အကောင့်အချက်အလက်များဖြင့် ဖြည့်ပါ)
+SALESMARTLY_API_TOKEN = os.environ.get("SALESMARTLY_API_TOKEN", "YOUR_SALESMARTLY_API_TOKEN_HERE")
+SALESMARTLY_API_URL = "https://api.salesmartly.com/v1/messages" # SaleSmartly ၏ တရားဝင် API Endpoint 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 IMAGES_DIR = BASE_DIR
@@ -54,6 +59,25 @@ async def send_photos(chat_id, context, keyword, caption_text):
     finally:
         for f in opened_files:
             f.close()
+
+
+def send_to_salesmartly(user, message_text):
+    """Telegram မှ ဝင်လာသော ဖောက်သည်၏ စာများကို SaleSmartly သို့ ပို့ပေးသည့် function"""
+    try:
+        headers = {
+            "Authorization": f"Bearer {SALESMARTLY_API_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "user_id": str(user.id),
+            "name": user.full_name,
+            "message": message_text,
+            "channel": "telegram"
+        }
+        response = requests.post(SALESMARTLY_API_URL, json=payload, headers=headers, timeout=5)
+        print(f"[SaleSmartly API] Response: {response.status_code}")
+    except Exception as e:
+        print(f"[ERROR SaleSmartly API] {e}")
 
 
 def custom_auto_reply(user_message):
@@ -140,7 +164,7 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif query.data == "deposit":
         await query.message.reply_text("📱 ဆော့ဝဲထဲကနေ တိုက်ရိုက် ငွေဖြည့်နည်းလေးကို ပုံလေးတွေနဲ့ တဆင့်ချင်းရှင်းပြပေးထားပါတယ်ရှင့် ✨")
-        deposit_caption = """⚠️ အချက်အလက်လေး မှန်ကန်အောင်တင်ပေးပါနော် 💯\n\n⚡️ အချက်အလက်လေးမှန်ကန်ရင် ၁၀ စက္ကန့်အတွင်း ဂိမ်းထဲပိုက်ဆံရောက်လာပါမယ်ရှင့် 📲💸"""
+        deposit_caption = """⚠️️ အချက်အလက်လေး မှန်ကန်အောင်တင်ပေးပါနော် 💯\n\n⚡️ အချက်အလက်လေးမှန်ကန်ရင် ၁၀ စက္ကန့်အတွင်း ဂိမ်းထဲပိုက်ဆံရောက်လာပါမယ်ရှင့် 📲💸"""
         await send_photos(query.message.chat_id, context, "deposit", deposit_caption)
 
     elif query.data == "withdraw":
@@ -153,6 +177,10 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
     text = update.message.text
     chat_id = update.message.chat_id
     user = update.message.from_user
+
+    # Telegram မှဝင်လာသော စာများကို SaleSmartly သို့ ပို့ပေးခြင်း
+    if user.id != ADMIN_ID:
+        send_to_salesmartly(user, text)
 
     # 1. မူလ Bot ခလုတ် စာသားများကို တုံ့ပြန်ခြင်း
     if "အကောင့်ဖွင့်မယ်" in text:
@@ -179,7 +207,7 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
     elif "ဆက်သွယ်ရန်" in text:
         await update.message.reply_text("👸 အက်ဒမင်ထံ တိုက်ရိုက် ဆက်သွယ်ရန် လင့်ခ် -\nhttps://t.me/maylay18181")
 
-    # 2. Admin (ADMIN_ID = 1580210387) မှ Reply နှိပ်၍ ဖောက်သည်ထံ စာပြန်ခြင်း
+    # 2. Admin (ADMIN_ID) မှ Reply နှိပ်၍ ဖောက်သည်ထံ စာပြန်ခြင်း
     elif user.id == ADMIN_ID:
         if update.message.reply_to_message:
             reply_msg = update.message.reply_to_message
@@ -248,6 +276,9 @@ def main():
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
 
     bot_app.run_polling(drop_pending_updates=True, stop_signals=None)
+
+if __name__ == 'main':
+    main()
 
 if __name__ == '__main__':
     main()
