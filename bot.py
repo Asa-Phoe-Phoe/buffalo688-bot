@@ -9,13 +9,10 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Mess
 # CONFIGURATION
 # ==========================================
 BOT_TOKEN = "8790787787:AAF1j0Ct-2cK4WwStG1JneIzsk3_n9MKOkk"
-
-# မိမိ၏ Telegram User ID ဂဏန်း (အမှန်ထည့်ထားပါသည်)
 ADMIN_ID = 8621413166
 
-# SaleSmartly API Configuration (ကိုယ့်ရဲ့ SaleSmartly အကောင့်အချက်အလက်များဖြင့် ဖြည့်ပါ)
 SALESMARTLY_API_TOKEN = os.environ.get("SALESMARTLY_API_TOKEN", "YOUR_SALESMARTLY_API_TOKEN_HERE")
-SALESMARTLY_API_URL = "https://api.salesmartly.com/v1/messages" # SaleSmartly ၏ တရားဝင် API Endpoint 
+SALESMARTLY_API_URL = "https://api.salesmartly.com/v1/messages"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 IMAGES_DIR = BASE_DIR
@@ -62,7 +59,6 @@ async def send_photos(chat_id, context, keyword, caption_text):
 
 
 def send_to_salesmartly(user, message_text):
-    """Telegram မှ ဝင်လာသော ဖောက်သည်၏ စာများကို SaleSmartly သို့ ပို့ပေးသည့် function"""
     try:
         headers = {
             "Authorization": f"Bearer {SALESMARTLY_API_TOKEN}",
@@ -83,35 +79,20 @@ def send_to_salesmartly(user, message_text):
 def custom_auto_reply(user_message):
     msg = user_message.lower().strip()
 
-    # 1. မင်္ဂလာပါ / နှုတ်ဆက်ခြင်း
     if any(k in msg for k in ["hi", "hello", "မင်္ဂလာပါ", "ဟဲလို"]):
         return "မင်္ဂလာပါရှင့် ✨ Buffalo688 မှ ကြိုဆိုပါတယ်ရှင့်။ ဘာများ ကူညီပေးရမလဲရှင့်?"
-
-    # 2. အကောင့်ဖွင့်ခြင်း
     elif any(k in msg for k in ["အကောင့်ဖွင့်", "acc ဖွင့်", "account", "ဖွင့်ချင်"]):
         return "ဟုတ်ကဲ့ပါရှင့် အကောင့်သစ် ဖွင့်ပေးဖို့အတွက် ဖုန်းနံပါတ်လေး ပို့ပေးပါဦးနော် ✨\n\nအကောင့်ဖွင့်ပြီးပါက နေ့စဉ် 5% Cash Back ဘောနပ်စ် ရရှိပါမည်ရှင့် 🎁"
-
-    # 3. ငွေသွင်းနည်း
     elif any(k in msg for k in ["ငွေသွင်း", "ငွေဖြည့်", "သွင်းနည်း", "deposit"]):
         return "📱 ဆော့ဝဲထဲကနေ တိုက်ရိုက် ငွေဖြည့်နိုင်ပါတယ်ရှင့်။ ငွေသွင်းနည်း ပုံများကို '💰 ငွေသွင်းနည်း' ခလုတ်ကို နှိပ်၍ ကြည့်ရှုနိုင်ပါတယ်ရှင့် ✨"
-
-    # 4. ငွေထုတ်နည်း
     elif any(k in msg for k in ["ငွေထုတ်", "ထုတ်နည်း", "withdraw"]):
         return "📱 ဆော့ဝဲထဲကနေ တိုက်ရိုက် ငွေထုတ်ယူနိုင်ပါတယ်ရှင့်။ ငွေထုတ်နည်း ပုံများကို '💸 ငွေထုတ်နည်း' ခလုတ်ကို နှိပ်၍ ကြည့်ရှုနိုင်ပါတယ်ရှင့် ✨"
-
-    # 5. ဘောနပ်စ် / ပရိုမိုးရှင်း
     elif any(k in msg for k in ["bonus", "ဘောနပ်", "ပရိုမိုးရှင်း", "cashback", "ရှုံးကြေး"]):
         return "ညီမတို့ Buffalo688 မှာ ကံမကောင်းလို့ ရှုံးသွားခဲ့ရင်တောင် နေ့စဉ် 5% Cash Back ဘောနပ်စ် ပြန်လည်ပေးအပ်နေပါတယ်ရှင့် ✨"
-
-    # 6. အနည်းဆုံး သွင်းငွေ/ထုတ်ငွေ
     elif any(k in msg for k in ["အနည်းဆုံး", "ဘယ်လောက်သွင်း", "ဘယ်လောက်ထုတ်"]):
         return "အနည်းဆုံး ငွေသွင်း/ငွေထုတ် ပမာဏမှာ 3,000 ကျပ် ဖြစ်ပါတယ်ရှင့် ✨"
-
-    # 7. ဆော့ဝဲဒေါင်းလုဒ်
     elif any(k in msg for k in ["app", "ဆော့ဝဲ", "download", "ဒေါင်း"]):
         return "📲 Buffalo688 ဆော့ဝဲဒေါင်းလုဒ်ရယူရန် လင့်ခ် -\nhttps://m.buffalo688.club/auth/register?code=K8PYVL"
-
-    # 8. သီးသန့် အဖြေမရှိပါက မူလအတိုင်း စောင့်ခိုင်းသည့် စာ
     else:
         return "ဟုတ်ကဲ့ပါရှင့်၊ မေးမြန်းထားသော စာအတွက် အက်ဒမင်မှ ခဏအတွင်း အကြောင်းပြန်ပေးပါလိမ့်မည်ရှင့် ✨"
 
@@ -164,7 +145,7 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif query.data == "deposit":
         await query.message.reply_text("📱 ဆော့ဝဲထဲကနေ တိုက်ရိုက် ငွေဖြည့်နည်းလေးကို ပုံလေးတွေနဲ့ တဆင့်ချင်းရှင်းပြပေးထားပါတယ်ရှင့် ✨")
-        deposit_caption = """⚠️️ အချက်အလက်လေး မှန်ကန်အောင်တင်ပေးပါနော် 💯\n\n⚡️ အချက်အလက်လေးမှန်ကန်ရင် ၁၀ စက္ကန့်အတွင်း ဂိမ်းထဲပိုက်ဆံရောက်လာပါမယ်ရှင့် 📲💸"""
+        deposit_caption = """⚠️ အချက်အလက်လေး မှန်ကန်အောင်တင်ပေးပါနော် 💯\n\n⚡️ အချက်အလက်လေးမှန်ကန်ရင် ၁၀ စက္ကန့်အတွင်း ဂိမ်းထဲပိုက်ဆံရောက်လာပါမယ်ရှင့် 📲💸"""
         await send_photos(query.message.chat_id, context, "deposit", deposit_caption)
 
     elif query.data == "withdraw":
@@ -178,47 +159,36 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
     chat_id = update.message.chat_id
     user = update.message.from_user
 
-    # Telegram မှဝင်လာသော စာများကို SaleSmartly သို့ ပို့ပေးခြင်း
     if user.id != ADMIN_ID:
         send_to_salesmartly(user, text)
 
-    # 1. မူလ Bot ခလုတ် စာသားများကို တုံ့ပြန်ခြင်း
     if "အကောင့်ဖွင့်မယ်" in text:
         await update.message.reply_text("ဟုတ်ကဲ့ပါရှင့် အကောင့်သစ်လေး ဖွင့်ပေးဖို့အတွက် အစ်ကိုရဲ့ ဖုန်းနံပါတ်လေး ပြောပေးပါဦးရှင့် ✨🌸")
         await update.message.reply_text("အကောင့်ဖွင့်ပြီးပါက နေ့စဉ် 5% Cash Back ဘောနပ်စ် ရရှိပါမည်ရှင့် 🎁")
         await update.message.reply_text("အဆင်မပြေတာရှိရင် အက်ဒမင်ထံ တိုက်ရိုက် ဆက်သွယ်မေးမြန်းနိုင်ပါသည်ခင်ဗျာ 👸")
-
     elif "ဆော့ဝဲဒေါင်းမည်" in text:
         await update.message.reply_text("📲 Buffalo688 ဆော့ဝဲဒေါင်းလုဒ်ရယူရန် လင့်ခ် -\nhttps://m.buffalo688.club/auth/register?code=K8PYVL")
-
     elif "တိုက်ရိုက်လင့်" in text:
         await update.message.reply_text("🌐 Buffalo688 တိုက်ရိုက်ဆိုက်သို့ ဝင်ရောက်ရန် -\nhttps://m.buffalo688.club/auth/register?code=K8PYVL")
-
     elif "ငွေသွင်းနည်း" in text:
         await update.message.reply_text("📱 ဆော့ဝဲထဲကနေ တိုက်ရိုက် ငွေဖြည့်နည်းလေးကို ပုံလေးတွေနဲ့ တဆင့်ချင်းရှင်းပြပေးထားပါတယ်ရှင့် ✨")
         deposit_caption = """⚠️ အချက်အလက်လေး မှန်ကန်အောင်တင်ပေးပါနော် 💯\n\n⚡️ အချက်အလက်လေးမှန်ကန်ရင် ၁၀ စက္ကန့်အတွင်း ဂိမ်းထဲပိုက်ဆံရောက်လာပါမယ်ရှင့် 📲💸"""
         await send_photos(chat_id, context, "deposit", deposit_caption)
-
     elif "ငွေထုတ်နည်း" in text:
         await update.message.reply_text("📱 ဆော့ဝဲထဲကနေ တိုက်ရိုက် ငွေထုတ်နည်းလေးကို ပုံလေးတွေနဲ့ တဆင့်ချင်းရှင်းပြပေးထားပါတယ်ရှင့် ✨")
         withdraw_caption = """⚡️ အချက်အလက်လေးမှန်ကန်အောင် ထည့်ပြီးရင် 10 စက္ကန့်အတွင်း Kpay, Wave ထဲ ထုတ်ငွေလေးဝင်လာပါမယ်ရှင့် 📲💸"""
         await send_photos(chat_id, context, "withdraw", withdraw_caption)
-
     elif "ဆက်သွယ်ရန်" in text:
         await update.message.reply_text("👸 အက်ဒမင်ထံ တိုက်ရိုက် ဆက်သွယ်ရန် လင့်ခ် -\nhttps://t.me/maylay18181")
-
-    # 2. Admin (ADMIN_ID) မှ Reply နှိပ်၍ ဖောက်သည်ထံ စာပြန်ခြင်း
     elif user.id == ADMIN_ID:
         if update.message.reply_to_message:
             reply_msg = update.message.reply_to_message
             target_text = reply_msg.text or reply_msg.caption or ""
-            
             if "ID:" in target_text:
                 try:
                     lines = target_text.split("\n")
                     user_id_line = [l for l in lines if "ID:" in l][0]
                     target_user_id = int(user_id_line.split("ID:")[1].strip())
-                    
                     await context.bot.send_message(chat_id=target_user_id, text=text)
                     await update.message.reply_text("✅ ဖောက်သည်ထံ စာပြန်ပြီးပါပြီခင်ဗျာ။")
                 except Exception as e:
@@ -226,8 +196,6 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
                     await update.message.reply_text(f"❌ စာပြန်၍ မရပါ: {e}")
             else:
                 await update.message.reply_text("⚠️ Reply နှိပ်ထားသော Message ထဲတွင် 'ID:' စာသား ပါဝင်ခြင်း မရှိပါခင်ဗျာ။")
-
-    # 3. ဖောက်သည်မှ စာပို့လာပါက Auto-Reply ပို့ခြင်း + Admin ထံ စာလှမ်းပို့ပေးခြင်း
     else:
         auto_reply = custom_auto_reply(text)
         await update.message.reply_text(auto_reply)
@@ -246,7 +214,7 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 # ==========================================
-# FLASK WEB SERVER
+# FLASK WEB SERVER & MAIN
 # ==========================================
 web_app = Flask(__name__)
 
@@ -259,9 +227,6 @@ def run_web():
     web_app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
 
 
-# ==========================================
-# MAIN EXECUTION
-# ==========================================
 def main():
     web_thread = Thread(target=run_web)
     web_thread.daemon = True
@@ -276,9 +241,6 @@ def main():
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
 
     bot_app.run_polling(drop_pending_updates=True, stop_signals=None)
-
-if __name__ == 'main':
-    main()
 
 if __name__ == '__main__':
     main()
